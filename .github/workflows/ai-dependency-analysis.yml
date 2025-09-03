@@ -198,7 +198,7 @@ jobs:
 
       - name: Create summary dashboard
         run: |
-          cat > dependency-dashboard.md << 'EOF'
+          cat > dependency-dashboard.md << EOF
           # Dependency Analysis Dashboard
           
           ## Analysis Summary
