@@ -1,0 +1,104 @@
+name: OpenSSF Scorecard Analysis
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * MON'  # Weekly on Monday at 2 AM
+  push:
+    branches: [ main ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract dependency repositories
+        id: extract-repos
+        run: |
+          node scripts/extract-dependencies.js > dependencies.json
+          echo "repos=$(cat dependencies.json | jq -r '.repositories | @json')" >> $GITHUB_OUTPUT
+
+      - name: Run Scorecard analysis on dependencies
+        uses: ossf/scorecard-action@v2.3.1
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Analyze each dependency with Scorecard
+        run: |
+          mkdir -p scorecard-reports
+          
+          # Read dependencies and analyze each GitHub repo
+          cat dependencies.json | jq -r '.repositories[]' | while read -r repo; do
+            if [[ "$repo" == *"github.com"* ]]; then
+              # Extract owner/repo from GitHub URL
+              repo_path=$(echo "$repo" | sed 's/.*github.com\///' | sed 's/.git$//')
+              
+              echo "Analyzing $repo_path..."
+              
+              # Run scorecard for this specific repo
+              docker run -e GITHUB_AUTH_TOKEN=${{ github.token }} \
+                gcr.io/openssf/scorecard:stable \
+                --repo="github.com/$repo_path" \
+                --format=json \
+                --show-details > "scorecard-reports/${repo_path//\//_}.json" || true
+            fi
+          done
+
+      - name: Generate consolidated report
+        run: |
+          node scripts/consolidate-scorecard-reports.js scorecard-reports/ > consolidated-scorecard.json
+          
+          # Create markdown report
+          node scripts/generate-markdown-report.js consolidated-scorecard.json > scorecard-report.md
+
+      - name: Upload Scorecard results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: scorecard-results.sarif
+
+      - name: Upload reports as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecard-reports
+          path: |
+            scorecard-reports/
+            consolidated-scorecard.json
+            scorecard-report.md
+
+      - name: Create issue with findings
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('scorecard-report.md', 'utf8');
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Weekly Scorecard Analysis Report - ${new Date().toISOString().split('T')[0]}`,
+              body: report,
+              labels: ['scorecard', 'security', 'dependencies']
+            });

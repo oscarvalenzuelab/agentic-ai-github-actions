@@ -1,0 +1,256 @@
+name: AI-Powered Dependency Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      analysis_type:
+        description: 'Type of analysis to perform'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+          - comprehensive
+          - security-focused
+          - maintainer-burnout
+          - community-health
+          - license-compliance
+  schedule:
+    - cron: '0 4 * * WED'  # Weekly on Wednesday at 4 AM
+  push:
+    branches: [ main ]
+    paths:
+      - 'package.json'
+      - 'analysis-prompts/**'
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  ai-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Extract dependency data
+        run: |
+          node scripts/extract-dependencies.js > dependencies.json
+          echo "Found $(cat dependencies.json | jq '.repositories | length') repositories to analyze"
+
+      - name: Collect GitHub repository metrics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p repo-data
+          
+          # For each dependency, collect comprehensive GitHub data
+          cat dependencies.json | jq -r '.repositories[]' | while read -r repo; do
+            if [[ "$repo" == *"github.com"* ]]; then
+              repo_path=$(echo "$repo" | sed 's/.*github.com\///' | sed 's/.git$//')
+              safe_name=$(echo "$repo_path" | sed 's/\//_/g')
+              
+              echo "Collecting data for $repo_path..."
+              
+              # Repository overview
+              gh api repos/$repo_path > "repo-data/${safe_name}_overview.json" || echo "{}" > "repo-data/${safe_name}_overview.json"
+              
+              # Contributors and commit activity
+              gh api repos/$repo_path/stats/contributors > "repo-data/${safe_name}_contributors.json" || echo "[]" > "repo-data/${safe_name}_contributors.json"
+              
+              # Recent commits
+              gh api repos/$repo_path/commits?per_page=100 > "repo-data/${safe_name}_commits.json" || echo "[]" > "repo-data/${safe_name}_commits.json"
+              
+              # Issues and PRs
+              gh api repos/$repo_path/issues?state=all&per_page=100 > "repo-data/${safe_name}_issues.json" || echo "[]" > "repo-data/${safe_name}_issues.json"
+              
+              # Community health
+              gh api repos/$repo_path/community/profile > "repo-data/${safe_name}_community.json" || echo "{}" > "repo-data/${safe_name}_community.json"
+              
+              # Releases
+              gh api repos/$repo_path/releases?per_page=10 > "repo-data/${safe_name}_releases.json" || echo "[]" > "repo-data/${safe_name}_releases.json"
+              
+              sleep 1  # Rate limiting
+            fi
+          done
+
+      - name: Prepare analysis context
+        run: |
+          node scripts/prepare-analysis-context.js repo-data/ > analysis-context.json
+
+      - name: Run AI analysis using GitHub Models
+        if: github.event.inputs.analysis_type != '' || github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANALYSIS_TYPE: ${{ github.event.inputs.analysis_type || 'comprehensive' }}
+        run: |
+          # Select appropriate prompt based on analysis type
+          PROMPT_FILE="analysis-prompts/${ANALYSIS_TYPE}.md"
+          
+          if [ ! -f "$PROMPT_FILE" ]; then
+            PROMPT_FILE="analysis-prompts/comprehensive.md"
+          fi
+          
+          # Use GitHub's AI models for analysis
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /models/gpt-4/inference \
+            -f prompt="$(cat $PROMPT_FILE)" \
+            -f context="$(cat analysis-context.json)" \
+            > ai-analysis-result.json || {
+              # Fallback to OpenAI if available
+              if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+                curl https://api.openai.com/v1/chat/completions \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+                  -d "{
+                    \"model\": \"gpt-4-turbo-preview\",
+                    \"messages\": [
+                      {
+                        \"role\": \"system\",
+                        \"content\": \"You are an expert in open source software analysis, focusing on dependency health, security, and sustainability.\"
+                      },
+                      {
+                        \"role\": \"user\",
+                        \"content\": \"$(cat $PROMPT_FILE)\\n\\nContext:\\n$(cat analysis-context.json)\"
+                      }
+                    ],
+                    \"temperature\": 0.3,
+                    \"max_tokens\": 4000
+                  }" | jq '.choices[0].message.content' > ai-analysis-result.json
+              else
+                echo "AI analysis failed - no AI service available" > ai-analysis-result.json
+              fi
+            }
+
+      - name: Generate detailed reports
+        run: |
+          # Create markdown report from AI analysis
+          node scripts/format-ai-report.js ai-analysis-result.json analysis-context.json > ai-analysis-report.md
+          
+          # Generate risk matrix
+          node scripts/generate-risk-matrix.js repo-data/ > risk-matrix.json
+          
+          # Create actionable insights
+          node scripts/generate-insights.js ai-analysis-result.json risk-matrix.json > actionable-insights.md
+
+      - name: Create summary dashboard
+        run: |
+          cat > dependency-dashboard.md << 'EOF'
+          # Dependency Analysis Dashboard
+          
+          ## Analysis Summary
+          - **Date**: $(date)
+          - **Analysis Type**: ${{ github.event.inputs.analysis_type || 'comprehensive' }}
+          - **Total Dependencies Analyzed**: $(cat dependencies.json | jq '.packages | length')
+          - **GitHub Repositories Analyzed**: $(cat dependencies.json | jq '.repositories | length')
+          
+          ## Key Findings
+          $(cat ai-analysis-report.md | head -50)
+          
+          ## Risk Assessment
+          $(cat risk-matrix.json | jq -r '.summary')
+          
+          ## Actionable Insights
+          $(cat actionable-insights.md)
+          
+          ---
+          *Full reports available in workflow artifacts*
+          EOF
+
+      - name: Upload analysis artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-dependency-analysis
+          path: |
+            repo-data/
+            analysis-context.json
+            ai-analysis-result.json
+            ai-analysis-report.md
+            risk-matrix.json
+            actionable-insights.md
+            dependency-dashboard.md
+
+      - name: Create or update analysis issue
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const dashboard = fs.readFileSync('dependency-dashboard.md', 'utf8');
+            const insights = fs.readFileSync('actionable-insights.md', 'utf8');
+            
+            const title = `AI Dependency Analysis - ${new Date().toISOString().split('T')[0]}`;
+            
+            // Check if issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'ai-analysis,dependencies',
+              state: 'open'
+            });
+            
+            const existingIssue = issues.data.find(i => i.title.includes('AI Dependency Analysis'));
+            
+            const body = `${dashboard}\n\n## Detailed Insights\n${insights}`;
+            
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: body
+              });
+              
+              // Add a comment with the new analysis
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: `Updated analysis completed at ${new Date().toISOString()}`
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['ai-analysis', 'dependencies', 'automated']
+              });
+            }
+
+      - name: Post high-priority findings as PR comments
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const insights = fs.readFileSync('actionable-insights.md', 'utf8');
+            
+            // Extract high priority items
+            const highPriority = insights.split('\n')
+              .filter(line => line.includes('HIGH') || line.includes('CRITICAL'))
+              .join('\n');
+            
+            if (highPriority) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `## ⚠️ Dependency Analysis - High Priority Findings\n\n${highPriority}`
+              });
+            }
