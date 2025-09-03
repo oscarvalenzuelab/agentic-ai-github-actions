@@ -1,4 +1,4 @@
-# Dependency Scorecard Analyzer
+# Agentic AI workflow for Supply Chain Analysis using GitHub Actions
 
 A GitHub Actions-powered tool for comprehensive dependency analysis using OpenSSF Scorecard and AI models to evaluate the health, security, and sustainability of npm dependencies.
 
