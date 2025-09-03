@@ -131,10 +131,14 @@ jobs:
             }
           EOF
           else
-            echo "No AI service configured. Generating rule-based analysis..."
+            echo "No AI service configured. Generating enhanced rule-based analysis for type: ${ANALYSIS_TYPE}..."
             
-            # Generate a basic rule-based analysis without AI
-            node -e "
+            # Use enhanced rule-based analysis for specific analysis types
+            if [ -f "scripts/enhanced-rule-analysis.js" ]; then
+              node scripts/enhanced-rule-analysis.js analysis-context.json "${ANALYSIS_TYPE}" > ai-analysis-result.json
+            else
+              # Fallback to basic analysis
+              node -e "
               const context = require('./analysis-context.json');
               const analysis = {
                 summary: 'Automated Analysis (No AI Service Available)',
@@ -183,6 +187,7 @@ jobs:
               console.log('- Healthy repositories: ' + context.summary.healthyRepositories);
               console.log('- At-risk repositories: ' + atRisk);
             " > ai-analysis-result.json
+            fi
           fi
 
       - name: Generate detailed reports
