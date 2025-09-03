@@ -11,12 +11,13 @@ A GitHub Actions-powered tool for comprehensive dependency analysis using OpenSS
 - SARIF report generation for GitHub Security tab integration
 
 ### 🤖 AI-Powered Analysis
-- Multiple analysis modes:
+- Multiple analysis modes (requires OpenAI API key):
   - **Comprehensive**: Full dependency health assessment
   - **Security-focused**: Deep security vulnerability analysis
   - **Maintainer burnout**: Sustainability and bus factor evaluation
   - **Community health**: Engagement and governance analysis
   - **License compliance**: Legal risk assessment
+- Falls back to rule-based analysis when no API key is configured
 
 ### 📊 Automated Reporting
 - Consolidated scorecard reports
@@ -33,8 +34,8 @@ npm install
 ```
 
 ### 2. Configure GitHub Secrets (Optional)
-For enhanced AI analysis, add these secrets to your repository:
-- `OPENAI_API_KEY`: OpenAI API key for GPT-4 analysis (optional, falls back to GitHub Models)
+For AI-powered analysis, add this secret to your repository:
+- `OPENAI_API_KEY`: OpenAI API key for GPT-4 analysis (optional, uses rule-based analysis if not provided)
 
 ### 3. Enable GitHub Actions
 The workflows are configured to run:

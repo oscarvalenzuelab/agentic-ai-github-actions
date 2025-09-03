@@ -88,7 +88,7 @@ jobs:
         run: |
           node scripts/prepare-analysis-context.js repo-data/ > analysis-context.json
 
-      - name: Run AI analysis using GitHub Models
+      - name: Run AI analysis
         if: github.event.inputs.analysis_type != '' || github.event_name == 'schedule'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -101,39 +101,89 @@ jobs:
             PROMPT_FILE="analysis-prompts/comprehensive.md"
           fi
           
-          # Use GitHub's AI models for analysis
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            /models/gpt-4/inference \
-            -f prompt="$(cat $PROMPT_FILE)" \
-            -f context="$(cat analysis-context.json)" \
-            > ai-analysis-result.json || {
-              # Fallback to OpenAI if available
-              if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
-                curl https://api.openai.com/v1/chat/completions \
-                  -H "Content-Type: application/json" \
-                  -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
-                  -d "{
-                    \"model\": \"gpt-4-turbo-preview\",
-                    \"messages\": [
-                      {
-                        \"role\": \"system\",
-                        \"content\": \"You are an expert in open source software analysis, focusing on dependency health, security, and sustainability.\"
-                      },
-                      {
-                        \"role\": \"user\",
-                        \"content\": \"$(cat $PROMPT_FILE)\\n\\nContext:\\n$(cat analysis-context.json)\"
-                      }
-                    ],
-                    \"temperature\": 0.3,
-                    \"max_tokens\": 4000
-                  }" | jq '.choices[0].message.content' > ai-analysis-result.json
-              else
-                echo "AI analysis failed - no AI service available" > ai-analysis-result.json
-              fi
+          # Check if OpenAI API key is available
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            echo "Using OpenAI for analysis..."
+            
+            # Prepare the prompt with context
+            FULL_PROMPT=$(cat $PROMPT_FILE)
+            CONTEXT_DATA=$(cat analysis-context.json)
+            
+            # Call OpenAI API
+            curl -s https://api.openai.com/v1/chat/completions \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+              -d @- <<EOF | jq -r '.choices[0].message.content' > ai-analysis-result.json
+            {
+              "model": "gpt-4-turbo-preview",
+              "messages": [
+                {
+                  "role": "system",
+                  "content": "You are an expert in open source software analysis, focusing on dependency health, security, and sustainability."
+                },
+                {
+                  "role": "user", 
+                  "content": "$FULL_PROMPT\n\nContext:\n$CONTEXT_DATA"
+                }
+              ],
+              "temperature": 0.3,
+              "max_tokens": 4000
             }
+          EOF
+          else
+            echo "No AI service configured. Generating rule-based analysis..."
+            
+            # Generate a basic rule-based analysis without AI
+            node -e "
+              const context = require('./analysis-context.json');
+              const analysis = {
+                summary: 'Automated Analysis (No AI Service Available)',
+                findings: [],
+                recommendations: []
+              };
+              
+              // Analyze health scores
+              const avgScore = context.summary.averageHealthScore;
+              if (avgScore < 50) {
+                analysis.findings.push('⚠️ Low average health score (' + avgScore + '/100) across dependencies');
+                analysis.recommendations.push('Consider replacing or contributing to low-health dependencies');
+              }
+              
+              // Check for at-risk repos
+              const atRisk = context.summary.atRiskRepositories;
+              if (atRisk > 0) {
+                analysis.findings.push('🔴 ' + atRisk + ' repositories identified as at-risk');
+                analysis.recommendations.push('Prioritize reviewing at-risk dependencies for replacement');
+              }
+              
+              // Check for abandoned repos
+              context.detailedAnalysis.forEach(repo => {
+                if (repo.metrics.archived) {
+                  analysis.findings.push('❌ ' + repo.repository + ' is archived');
+                }
+                if (repo.metrics.commitsLastMonth === 0 && !repo.metrics.archived) {
+                  analysis.findings.push('⚠️ ' + repo.repository + ' has no recent activity');
+                }
+                if (repo.metrics.contributorCount < 2) {
+                  analysis.findings.push('👤 ' + repo.repository + ' has bus factor risk (single maintainer)');
+                }
+              });
+              
+              // Output formatted analysis
+              console.log('## Analysis Results\\n');
+              console.log('### Key Findings\\n');
+              analysis.findings.forEach(f => console.log('- ' + f));
+              console.log('\\n### Recommendations\\n');
+              analysis.recommendations.forEach(r => console.log('- ' + r));
+              
+              // Add metrics summary
+              console.log('\\n### Metrics Summary\\n');
+              console.log('- Total repositories analyzed: ' + context.repositoriesAnalyzed);
+              console.log('- Average health score: ' + avgScore + '/100');
+              console.log('- Healthy repositories: ' + context.summary.healthyRepositories);
+              console.log('- At-risk repositories: ' + atRisk);
+            " > ai-analysis-result.json
+          fi
 
       - name: Generate detailed reports
         run: |
