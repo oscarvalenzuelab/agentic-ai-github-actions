@@ -10,15 +10,16 @@ on:
       - 'package.json'
       - 'package-lock.json'
 
-permissions:
-  contents: read
-  security-events: write
-  actions: read
-  issues: write
+permissions: read-all
 
 jobs:
   analyze-dependencies:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      issues: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
