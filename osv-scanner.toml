@@ -1,0 +1,14 @@
+# OSV Scanner configuration
+# https://github.com/google/osv-scanner
+
+[[IgnoredVulns]]
+# Example of how to ignore vulnerabilities
+# id = "VULN-ID-HERE"
+# reason = "This vulnerability does not affect our usage pattern"
+
+[LoadDirs]
+# Scan package-lock.json and package.json for vulnerabilities
+include = ["package-lock.json", "package.json"]
+
+# Skip scanning certain directories if needed
+# exclude = ["node_modules", "dist"]
