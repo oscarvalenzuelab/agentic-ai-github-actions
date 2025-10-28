@@ -22,14 +22,15 @@ on:
       - 'package.json'
       - 'analysis-prompts/**'
 
-permissions:
-  contents: read
-  issues: write
-  pull-requests: read
+permissions: read-all
 
 jobs:
   ai-analysis:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
