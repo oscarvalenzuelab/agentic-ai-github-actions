@@ -5,23 +5,60 @@ const https = require('https');
 
 // Read the analysis context
 const context = JSON.parse(fs.readFileSync('analysis-context.json', 'utf8'));
-const prompt = fs.readFileSync('analysis-prompts/comprehensive.md', 'utf8');
 
-// Prepare the OpenAI request
+// Create a summarized context focusing on key metrics
+const summarizedContext = {
+  analysisDate: context.analysisDate,
+  repositoriesAnalyzed: context.repositoriesAnalyzed,
+  summary: context.summary,
+  // Only include top concerning repos
+  topConcerns: context.detailedAnalysis
+    .filter(r => r.healthScore < 50)
+    .slice(0, 5)
+    .map(r => ({
+      name: r.repository,
+      score: r.healthScore,
+      issues: r.metrics.archived ? 'archived' :
+              r.metrics.disabled ? 'disabled' :
+              r.metrics.commitsLastMonth === 0 ? 'no recent activity' :
+              r.metrics.contributorCount < 2 ? 'low contributors' :
+              'low health score'
+    })),
+  // Include security metrics
+  securityMetrics: {
+    reposWithoutSecurity: context.detailedAnalysis
+      .filter(r => !r.metrics.hasSecurityPolicy).length,
+    reposWithVulnerabilities: context.detailedAnalysis
+      .filter(r => r.metrics.vulnerabilityAlerts > 0).length
+  }
+};
+
+// Prepare the OpenAI request with smaller context
 const requestData = {
-  model: "gpt-4",
+  model: "gpt-3.5-turbo-16k", // Use model with larger context window
   messages: [
     {
       role: "system",
-      content: "You are an expert in open source software analysis, focusing on dependency health, security, and sustainability. Provide your response in valid JSON format."
+      content: "You are an expert in open source software analysis. Provide concise, actionable insights in JSON format."
     },
     {
       role: "user",
-      content: `${prompt}\n\nHere is the repository data to analyze:\n${JSON.stringify(context, null, 2)}\n\nIMPORTANT: Respond with a JSON object containing these keys:\n- summary (string): Executive summary of findings\n- overallRisk (string): One of "Low", "Medium", "High", "Critical"\n- criticalFindings (array): Array of critical issues found\n- securityIssues (array): Array of security concerns\n- sustainabilityIssues (array): Array of maintenance/sustainability concerns\n- recommendations (array): Array of actionable recommendations\n- immediateActions (array): Array of urgent actions needed`
+      content: `Analyze these dependency health metrics and provide recommendations:
+
+${JSON.stringify(summarizedContext, null, 2)}
+
+Respond with a JSON object containing:
+- summary: Executive summary (2-3 sentences)
+- overallRisk: "Low", "Medium", "High", or "Critical"
+- criticalFindings: Array of 3-5 critical issues
+- securityIssues: Array of security concerns
+- sustainabilityIssues: Array of maintenance risks
+- recommendations: Array of 5 actionable recommendations
+- immediateActions: Array of 2-3 urgent actions`
     }
   ],
   temperature: 0.3,
-  max_tokens: 4000
+  max_tokens: 2000 // Reduced token limit
 };
 
 const options = {
