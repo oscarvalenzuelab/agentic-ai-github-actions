@@ -114,31 +114,53 @@ jobs:
               node scripts/test-openai-analysis.js
             else
               # Fallback to curl approach with better error handling
-              FULL_PROMPT=$(cat $PROMPT_FILE)
-              CONTEXT_DATA=$(cat analysis-context.json)
+              echo "Script not found, using curl fallback..."
+
+              # Create summarized context to avoid token limits
+              SUMMARIZED_CONTEXT=$(node -e "
+              const fs = require('fs');
+              const context = JSON.parse(fs.readFileSync('analysis-context.json', 'utf8'));
+              const summary = {
+                date: context.analysisDate,
+                repos: context.repositoriesAnalyzed,
+                avgScore: context.summary.averageHealthScore,
+                topConcerns: context.detailedAnalysis
+                  .filter(r => r.healthScore < 50)
+                  .slice(0, 5)
+                  .map(r => ({
+                    name: r.repository,
+                    score: r.healthScore,
+                    issue: r.metrics.archived ? 'archived' :
+                           r.metrics.disabled ? 'disabled' :
+                           r.metrics.commitsLastMonth === 0 ? 'no activity' :
+                           r.metrics.contributorCount < 2 ? 'low contributors' : 'low health'
+                  }))
+              };
+              console.log(JSON.stringify(summary));
+              ")
 
               # Create a temporary file for the response
               TEMP_RESPONSE=$(mktemp)
 
-              # Call OpenAI API
+              # Call OpenAI API with smaller context
               curl -s https://api.openai.com/v1/chat/completions \
                 -H "Content-Type: application/json" \
                 -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
                 -d @- <<EOF > $TEMP_RESPONSE
               {
-                "model": "gpt-4",
+                "model": "gpt-3.5-turbo-16k",
                 "messages": [
                   {
                     "role": "system",
-                    "content": "You are an expert in open source software analysis. Respond with a JSON object containing: summary, overallRisk, criticalFindings (array), securityIssues (array), sustainabilityIssues (array), recommendations (array), immediateActions (array)."
+                    "content": "You are an expert in open source software analysis. Provide concise JSON response."
                   },
                   {
                     "role": "user",
-                    "content": "$FULL_PROMPT\n\nContext:\n$CONTEXT_DATA"
+                    "content": "Analyze these dependency metrics and provide recommendations:\n\n$SUMMARIZED_CONTEXT\n\nRespond with JSON containing: summary (2-3 sentences), overallRisk (Low/Medium/High/Critical), criticalFindings (array of 3-5 issues), securityIssues (array), sustainabilityIssues (array), recommendations (array of 5 actions), immediateActions (array of 2-3 urgent items)"
                   }
                 ],
                 "temperature": 0.3,
-                "max_tokens": 4000
+                "max_tokens": 2000
               }
           EOF
 
