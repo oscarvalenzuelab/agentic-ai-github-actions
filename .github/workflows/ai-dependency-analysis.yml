@@ -105,32 +105,75 @@ jobs:
           # Check if OpenAI API key is available
           if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
             echo "Using OpenAI for analysis..."
-            
-            # Prepare the prompt with context
-            FULL_PROMPT=$(cat $PROMPT_FILE)
-            CONTEXT_DATA=$(cat analysis-context.json)
-            
-            # Call OpenAI API
-            curl -s https://api.openai.com/v1/chat/completions \
-              -H "Content-Type: application/json" \
-              -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
-              -d @- <<EOF | jq -r '.choices[0].message.content' > ai-analysis-result.json
-            {
-              "model": "gpt-4-turbo-preview",
-              "messages": [
-                {
-                  "role": "system",
-                  "content": "You are an expert in open source software analysis, focusing on dependency health, security, and sustainability."
-                },
-                {
-                  "role": "user", 
-                  "content": "$FULL_PROMPT\n\nContext:\n$CONTEXT_DATA"
-                }
-              ],
-              "temperature": 0.3,
-              "max_tokens": 4000
-            }
+
+            # Export the API key for the Node script
+            export OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
+
+            # Use the improved Node.js script for OpenAI analysis
+            if [ -f "scripts/test-openai-analysis.js" ]; then
+              node scripts/test-openai-analysis.js
+            else
+              # Fallback to curl approach with better error handling
+              FULL_PROMPT=$(cat $PROMPT_FILE)
+              CONTEXT_DATA=$(cat analysis-context.json)
+
+              # Create a temporary file for the response
+              TEMP_RESPONSE=$(mktemp)
+
+              # Call OpenAI API
+              curl -s https://api.openai.com/v1/chat/completions \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
+                -d @- <<EOF > $TEMP_RESPONSE
+              {
+                "model": "gpt-4",
+                "messages": [
+                  {
+                    "role": "system",
+                    "content": "You are an expert in open source software analysis. Respond with a JSON object containing: summary, overallRisk, criticalFindings (array), securityIssues (array), sustainabilityIssues (array), recommendations (array), immediateActions (array)."
+                  },
+                  {
+                    "role": "user",
+                    "content": "$FULL_PROMPT\n\nContext:\n$CONTEXT_DATA"
+                  }
+                ],
+                "temperature": 0.3,
+                "max_tokens": 4000
+              }
           EOF
+
+              # Extract and process the response
+              if jq -e '.choices[0].message.content' $TEMP_RESPONSE > /dev/null 2>&1; then
+                jq -r '.choices[0].message.content' $TEMP_RESPONSE > ai-analysis-raw.txt
+
+                # Try to parse as JSON, or create structured response
+                node -e "
+                const fs = require('fs');
+                const raw = fs.readFileSync('ai-analysis-raw.txt', 'utf8');
+                let result;
+                try {
+                  result = JSON.parse(raw);
+                } catch(e) {
+                  result = {
+                    summary: raw,
+                    overallRisk: 'Medium',
+                    criticalFindings: [],
+                    securityIssues: [],
+                    sustainabilityIssues: [],
+                    recommendations: ['Review the analysis summary above'],
+                    immediateActions: []
+                  };
+                }
+                fs.writeFileSync('ai-analysis-result.json', JSON.stringify(result, null, 2));
+                " || echo '{"summary": "Analysis failed", "overallRisk": "Unknown"}' > ai-analysis-result.json
+              else
+                echo "OpenAI API call failed. Response:"
+                cat $TEMP_RESPONSE
+                echo '{"summary": "OpenAI API call failed", "overallRisk": "Unknown"}' > ai-analysis-result.json
+              fi
+
+              rm -f $TEMP_RESPONSE
+            fi
           else
             echo "No AI service configured. Generating enhanced rule-based analysis for type: ${ANALYSIS_TYPE}..."
             

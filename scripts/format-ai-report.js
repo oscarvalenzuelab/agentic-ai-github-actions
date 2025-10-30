@@ -11,16 +11,55 @@ if (!aiResultFile || !contextFile) {
 }
 
 try {
-  const aiResult = fs.readFileSync(aiResultFile, 'utf8');
+  let aiResult;
+  try {
+    // Try to parse as JSON first
+    aiResult = JSON.parse(fs.readFileSync(aiResultFile, 'utf8'));
+  } catch (e) {
+    // If not JSON, treat as plain text
+    aiResult = { summary: fs.readFileSync(aiResultFile, 'utf8') };
+  }
+
   const context = JSON.parse(fs.readFileSync(contextFile, 'utf8'));
-  
+
   console.log(`# AI-Powered Dependency Analysis Report`);
   console.log(`\n**Analysis Date**: ${context.analysisDate}`);
   console.log(`**Repositories Analyzed**: ${context.repositoriesAnalyzed}`);
   console.log(`**Average Health Score**: ${context.summary.averageHealthScore}/100`);
-  
+
   console.log(`\n## AI Analysis Summary`);
-  console.log(`\n${aiResult}`);
+
+  // Handle structured AI response
+  if (aiResult.summary) {
+    console.log(`\n${aiResult.summary}`);
+
+    if (aiResult.overallRisk) {
+      console.log(`\n**Overall Risk Level**: ${aiResult.overallRisk}`);
+    }
+
+    if (aiResult.criticalFindings && aiResult.criticalFindings.length > 0) {
+      console.log(`\n### Critical Findings`);
+      aiResult.criticalFindings.forEach(finding => {
+        console.log(`- ${finding}`);
+      });
+    }
+
+    if (aiResult.securityIssues && aiResult.securityIssues.length > 0) {
+      console.log(`\n### Security Issues`);
+      aiResult.securityIssues.forEach(issue => {
+        console.log(`- ${issue}`);
+      });
+    }
+
+    if (aiResult.recommendations && aiResult.recommendations.length > 0) {
+      console.log(`\n### AI Recommendations`);
+      aiResult.recommendations.forEach(rec => {
+        console.log(`- ${rec}`);
+      });
+    }
+  } else {
+    console.log(`\n${JSON.stringify(aiResult)}`);
+  }
   
   console.log(`\n## Repository Health Metrics`);
   
