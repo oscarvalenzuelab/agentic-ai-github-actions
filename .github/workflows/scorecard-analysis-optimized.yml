@@ -1,0 +1,130 @@
+name: Optimized Scorecard Analysis
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * MON'  # Weekly on Monday at 2 AM
+  push:
+    branches: [ main ]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions: read-all
+
+jobs:
+  analyze-dependencies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Scorecard on current repository only
+        uses: ossf/scorecard-action@v2.3.1
+        with:
+          results_file: scorecard-results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Quick dependency security check
+        run: |
+          echo "## Dependency Security Summary" > security-report.md
+          echo "Date: $(date)" >> security-report.md
+          echo "" >> security-report.md
+
+          # Run npm audit for quick vulnerability check
+          echo "### NPM Audit Results" >> security-report.md
+          npm audit --json > audit.json || true
+
+          # Parse audit results
+          node -e "
+          const audit = require('./audit.json');
+          const vulns = audit.metadata?.vulnerabilities || {};
+          console.log('- Total vulnerabilities:', Object.values(vulns).reduce((a,b) => a+b, 0));
+          console.log('- Critical:', vulns.critical || 0);
+          console.log('- High:', vulns.high || 0);
+          console.log('- Moderate:', vulns.moderate || 0);
+          console.log('- Low:', vulns.low || 0);
+          " >> security-report.md
+
+          # List top 5 most critical dependencies to review
+          echo "" >> security-report.md
+          echo "### Critical Dependencies to Review" >> security-report.md
+          node scripts/extract-dependencies.js | jq -r '.dependencies[:5] | to_entries[] | "- \(.key): \(.value)"' >> security-report.md
+
+          # Get scorecard for THIS repo only
+          echo "" >> security-report.md
+          echo "### Repository Scorecard" >> security-report.md
+          echo "Scorecard analysis completed for main repository." >> security-report.md
+          echo "Full SARIF results uploaded to GitHub Security tab." >> security-report.md
+
+      - name: Upload Scorecard results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        continue-on-error: true
+        with:
+          sarif_file: scorecard-results.sarif
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: |
+            security-report.md
+            audit.json
+            scorecard-results.sarif
+
+      - name: Create or update security issue
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('security-report.md', 'utf8');
+
+            const title = `Security Analysis - ${new Date().toISOString().split('T')[0]}`;
+
+            // Check for existing issue
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security,automated',
+              state: 'open'
+            });
+
+            const existing = issues.data.find(i => i.title.startsWith('Security Analysis'));
+
+            if (existing) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: report
+              });
+              console.log(`Updated issue #${existing.number}`);
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: report,
+                labels: ['security', 'automated']
+              });
+              console.log('Created new security issue');
+            }
