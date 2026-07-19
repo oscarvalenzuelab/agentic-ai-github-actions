@@ -315,11 +315,28 @@ AI components: 5 detected</div>
 <section class="slide">
   <p class="eyebrow">Closing the loop</p>
   <h2>The agent that fixes what the report finds</h2>
-  <ul>
-    <li>A <strong>GitHub Agentic Workflow</strong> triggers after each analysis: reads the evidence — OSV findings and OSPAC license verdicts — bumps vulnerable dependencies, regenerates the lockfile, verifies the audit improves, and flags license findings for OSPO follow-up.</li>
-    <li><strong>GitHub Copilot is the agent's core engine</strong> — native to Actions, running an included model chosen automatically from the plan. One repository secret: a fine-grained Copilot PAT.</li>
-    <li>All writes pass through <strong>validated safe-outputs</strong>: exactly one pull request and one issue comment. The agent itself is read-only, sandboxed, behind an egress firewall.</li>
-  </ul>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>A <strong>GitHub Agentic Workflow</strong> triggers after each analysis: reads the evidence — OSV findings and OSPAC license verdicts — bumps vulnerable dependencies, regenerates the lockfile, verifies the audit improves, and flags license findings for OSPO follow-up.</li>
+        <li><strong>GitHub Copilot is the agent's core engine</strong> — native to Actions, running an included model chosen automatically from the plan.</li>
+        <li>All writes pass through <strong>validated safe-outputs</strong>: exactly one pull request and one issue comment. The agent itself is read-only, sandboxed, behind an egress firewall.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="report">One-time setup (optional)
+──────────────────────────────
+1  Fine-grained PAT — resource
+   owner: your personal account
+2  Add permissions
+   → Copilot Requests
+3  gh secret set
+   COPILOT_GITHUB_TOKEN
+──────────────────────────────
+Copilot Free plan is enough.</div>
+      <p class="foot">Full steps in the README setup section.</p>
+    </div>
+  </div>
   <p class="foot">Evidence pipeline recommends → agent proposes → human disposes.</p>
 </section>
 
