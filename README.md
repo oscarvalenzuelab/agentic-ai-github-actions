@@ -2,6 +2,8 @@
 
 GitHub Actions workflows that help an OSPO evaluate the health, security, and sustainability of open source dependencies (npm and Python). The pipeline combines native GitHub supply chain data (dependency graph, OpenSSF Scorecard), known-vulnerability data from OSV.dev, and model-driven assessments via GitHub Models.
 
+This project is a functional demo that can be extended for real use. A professional-grade solution requires enterprise data sources and fine-tuned AI agents beyond what is shown here.
+
 ## What It Does
 
 Three workflows:
