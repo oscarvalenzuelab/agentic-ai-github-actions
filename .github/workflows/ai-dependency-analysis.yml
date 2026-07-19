@@ -193,47 +193,10 @@ jobs:
             node scripts/enhanced-rule-analysis.js analysis-context.json "$ANALYSIS_TYPE" > ai-analysis-result.json
           fi
 
-      - name: Generate detailed reports
+      - name: Generate report
         run: |
-          # Check if AI analysis completed successfully
-          if [ ! -f "ai-analysis-result.json" ]; then
-            echo "AI analysis file not found. Creating fallback analysis..."
-            echo "# Analysis Not Available" > ai-analysis-result.json
-            echo "Analysis could not be completed. Please check previous steps." >> ai-analysis-result.json
-          fi
-
-          # Create markdown report from AI analysis
-          node scripts/format-ai-report.js ai-analysis-result.json analysis-context.json > ai-analysis-report.md
-
-          # Generate risk matrix
           node scripts/generate-risk-matrix.js repo-data/ > risk-matrix.json
-
-          # Create actionable insights
-          node scripts/generate-insights.js ai-analysis-result.json risk-matrix.json > actionable-insights.md
-
-      - name: Create summary dashboard
-        run: |
-          cat > dependency-dashboard.md << EOF
-          # Dependency Analysis Dashboard
-          
-          ## Analysis Summary
-          - **Date**: $(date)
-          - **Analysis Type**: ${{ github.event.inputs.analysis_type || 'comprehensive' }}
-          - **Total Dependencies Analyzed**: $(cat dependencies.json | jq '.packages | length')
-          - **GitHub Repositories Analyzed**: $(cat dependencies.json | jq '.repositories | length')
-          
-          ## Key Findings
-          $(cat ai-analysis-report.md | head -50)
-          
-          ## Risk Assessment
-          $(cat risk-matrix.json | jq -r '.summary')
-          
-          ## Actionable Insights
-          $(cat actionable-insights.md)
-          
-          ---
-          *Full reports available in workflow artifacts*
-          EOF
+          node scripts/generate-report.js analysis-context.json ai-analysis-result.json risk-matrix.json osv-vulns.json license-analysis.json aibom.json > analysis-report.md
 
       - name: Upload analysis artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -247,10 +210,8 @@ jobs:
             aibom.json
             analysis-context.json
             ai-analysis-result.json
-            ai-analysis-report.md
+            analysis-report.md
             risk-matrix.json
-            actionable-insights.md
-            dependency-dashboard.md
 
       - name: Create or update analysis issue
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -258,9 +219,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const dashboard = fs.readFileSync('dependency-dashboard.md', 'utf8');
-            const insights = fs.readFileSync('actionable-insights.md', 'utf8');
-            
+            const report = fs.readFileSync('analysis-report.md', 'utf8');
+
             const title = `AI Dependency Analysis - ${new Date().toISOString().split('T')[0]}`;
             
             // Check if issue already exists
@@ -272,9 +232,9 @@ jobs:
             });
             
             const existingIssue = issues.data.find(i => i.title.includes('AI Dependency Analysis'));
-            
-            const body = `${dashboard}\n\n## Detailed Insights\n${insights}`;
-            
+
+            const body = report;
+
             if (existingIssue) {
               // Update existing issue
               await github.rest.issues.update({

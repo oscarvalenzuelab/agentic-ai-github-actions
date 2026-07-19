@@ -25,7 +25,7 @@ The `ai-dependency-analysis.yml` pipeline, in order:
 6. **Compute health scores** (0-100) per repository from a weighted heuristic: recent activity, contributor count and concentration (bus factor), issue-resolution time, release recency, and popularity. GitHub's community-profile `health_percentage` is one input; the composite score is computed locally in `prepare-analysis-context.js`.
 7. **Run AI analysis** with [GitHub Models](https://docs.github.com/en/github-models) through [`actions/ai-inference`](https://github.com/actions/ai-inference). The selected analysis prompt from `analysis-prompts/` becomes the system prompt (with a strict JSON output contract appended), and the summarized metrics, OSV vulnerability data, OSPAC license findings, and detected AI components become the user prompt. Authentication uses the built-in `GITHUB_TOKEN` with the `models: read` permission — no external API key or secret is required.
 8. **Fall back to rule-based analysis** (`enhanced-rule-analysis.js`) if GitHub Models is unavailable, so the workflow always produces a result.
-9. **Generate reports**: a formatted analysis report, a per-repository risk matrix (security / maintenance / sustainability / licensing, each scored 0-10), actionable insights with prioritized recommendations, and a summary dashboard.
+9. **Generate the report**: a single consolidated Markdown report (assessment, vulnerabilities, license policy, AI components, per-repository health and risk) plus a per-repository risk matrix scored 0-10 across security, maintenance, sustainability, and licensing.
 10. **Create or update a tracking issue** (labels `ai-analysis`, `dependencies`) on scheduled and manual runs.
 
 ## Analysis Modes
@@ -86,13 +86,12 @@ AI analysis:
 - `enhanced-rule-analysis.js` — rule-based analysis used when GitHub Models is unavailable
 
 Reporting:
-- `format-ai-report.js` — renders the analysis result and metrics as a Markdown report
+- `generate-report.js` — composes the consolidated Markdown report from all analysis outputs
 - `generate-risk-matrix.js` — scores each repository 0-10 across security, maintenance, sustainability, and licensing
-- `generate-insights.js` — produces prioritized, actionable recommendations from the risk matrix
 
 ## Output Artifacts
 
-AI analysis run (`ai-dependency-analysis` artifact): raw repository data, the SBOM, OSV vulnerability results, the OSPAC license analysis, the CycloneDX AIBOM, the analysis context, the AI result JSON, the formatted report, the risk matrix, actionable insights, and the summary dashboard.
+AI analysis run (`ai-dependency-analysis` artifact): raw repository data, the SBOM, OSV vulnerability results, the OSPAC license analysis, the CycloneDX AIBOM, the analysis context, the AI result JSON, the consolidated report, and the risk matrix.
 
 Scorecard run (`security-report` artifact): the security report, npm audit JSON, and the Scorecard SARIF file. The SARIF results are also uploaded to the repository's Security tab.
 

@@ -20,14 +20,14 @@ function analyzeLicenseCompliance(repos) {
     const license = repo.metrics.license;
     if (license === 'None' || !license) {
       noLicense.push(repo.repository);
-      findings.push(`⚠️ ${repo.repository} has no license specified`);
+      findings.push(`${repo.repository} has no license specified`);
     } else {
       licenseCounts[license] = (licenseCounts[license] || 0) + 1;
       
       // Check for copyleft licenses
       if (['GPL-2.0', 'GPL-3.0', 'AGPL-3.0'].includes(license)) {
         riskyLicenses.push({ repo: repo.repository, license });
-        findings.push(`🔴 ${repo.repository} uses strong copyleft license (${license})`);
+        findings.push(`${repo.repository} uses strong copyleft license (${license})`);
       }
     }
   });
@@ -51,19 +51,19 @@ function analyzeSecurityFocus(repos) {
     
     // Check for security indicators
     if (!repo.metrics.communityHealth?.hasSecurityPolicy) {
-      findings.push(`🔒 ${repo.repository} lacks security policy`);
+      findings.push(`${repo.repository} lacks security policy`);
     }
     
     if (repo.metrics.openIssues > 100) {
-      findings.push(`⚠️ ${repo.repository} has ${repo.metrics.openIssues} open issues (potential unaddressed vulnerabilities)`);
+      findings.push(`${repo.repository} has ${repo.metrics.openIssues} open issues (potential unaddressed vulnerabilities)`);
     }
     
     if (repo.metrics.avgDaysToCloseIssue > 90) {
-      findings.push(`🐌 ${repo.repository} slow to close issues (avg ${repo.metrics.avgDaysToCloseIssue} days)`);
+      findings.push(`${repo.repository} slow to close issues (avg ${repo.metrics.avgDaysToCloseIssue} days)`);
     }
     
     if (repo.metrics.latestRelease?.daysSince > 365) {
-      findings.push(`📦 ${repo.repository} hasn't released in ${repo.metrics.latestRelease.daysSince} days`);
+      findings.push(`${repo.repository} hasn't released in ${repo.metrics.latestRelease.daysSince} days`);
     }
   });
   
@@ -81,18 +81,18 @@ function analyzeMaintainerBurnout(repos) {
   repos.forEach(repo => {
     // Bus factor analysis
     if (repo.metrics.contributorCount === 1) {
-      findings.push(`👤 ${repo.repository} has single maintainer (critical bus factor)`);
+      findings.push(`${repo.repository} has single maintainer (critical bus factor)`);
       recommendations.push(`Find alternatives for ${repo.repository} or offer maintainer support`);
     }
     
     // Activity decline detection
     if (repo.metrics.commitsLastMonth === 0 && repo.metrics.commitsLastQuarter > 0) {
-      findings.push(`📉 ${repo.repository} shows declining activity`);
+      findings.push(`${repo.repository} shows declining activity`);
     }
     
     // Contribution concentration
     if (repo.metrics.contributionConcentration > 0.8) {
-      findings.push(`⚠️ ${repo.repository} has ${(repo.metrics.contributionConcentration * 100).toFixed(0)}% contribution concentration`);
+      findings.push(`${repo.repository} has ${(repo.metrics.contributionConcentration * 100).toFixed(0)}% contribution concentration`);
     }
   });
   
@@ -108,7 +108,7 @@ function analyzeCommunityHealth(repos) {
     if (health) {
       const score = health.healthPercentage || 0;
       if (score < 50) {
-        findings.push(`📊 ${repo.repository} has low community health score (${score}%)`);
+        findings.push(`${repo.repository} has low community health score (${score}%)`);
         
         const missing = [];
         if (!health.hasReadme) missing.push('README');
@@ -123,7 +123,7 @@ function analyzeCommunityHealth(repos) {
     }
     
     if (repo.metrics.openPRs > 10) {
-      findings.push(`🔄 ${repo.repository} has ${repo.metrics.openPRs} unmerged PRs`);
+      findings.push(`${repo.repository} has ${repo.metrics.openPRs} unmerged PRs`);
     }
   });
   
@@ -163,29 +163,32 @@ switch (analysisType) {
     break;
 }
 
-// Output formatted report
-console.log(`## ${analysisType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} Analysis\n`);
-console.log(`### Key Findings\n`);
-analysis.findings.slice(0, 20).forEach(f => console.log(`- ${f}`));
+// Emit the same JSON contract the model produces, so downstream report
+// generation is identical whether or not GitHub Models was available.
+const atRisk = context.summary.atRiskRepositories;
+const avgScore = context.summary.averageHealthScore;
 
-if (analysis.findings.length > 20) {
-  console.log(`\n... and ${analysis.findings.length - 20} more findings`);
-}
+const overallRisk =
+  atRisk > context.repositoriesAnalyzed / 2 ? 'High' :
+  atRisk > 0 || avgScore < 50 ? 'Medium' :
+  'Low';
 
-console.log(`\n### Recommendations\n`);
-analysis.recommendations.forEach(r => console.log(`- ${r}`));
+const modeLabel = analysisType.replace(/-/g, ' ');
+const result = {
+  summary: `Rule-based ${modeLabel} analysis (GitHub Models unavailable) of ` +
+    `${context.repositoriesAnalyzed} direct-dependency repositories. ` +
+    `Average health score ${avgScore}/100; ${atRisk} at risk. ` +
+    `${analysis.findings.length} findings.`,
+  overallRisk,
+  criticalFindings: analysis.findings.slice(0, 5),
+  securityIssues: analysis.findings.filter(f =>
+    /security|vulnerab|open issues/i.test(f)).slice(0, 5),
+  sustainabilityIssues: analysis.findings.filter(f =>
+    /maintainer|concentration|activity|archived/i.test(f)).slice(0, 5),
+  recommendations: analysis.recommendations.slice(0, 5),
+  immediateActions: analysis.findings
+    .filter(f => /archived|no license|single maintainer/i.test(f))
+    .slice(0, 3)
+};
 
-console.log(`\n### Summary Statistics\n`);
-console.log(`- Total repositories analyzed: ${context.repositoriesAnalyzed}`);
-console.log(`- Average health score: ${context.summary.averageHealthScore}/100`);
-console.log(`- At-risk repositories: ${context.summary.atRiskRepositories}`);
-
-if (analysis.summary) {
-  console.log(`\n### Additional Insights\n`);
-  if (analysis.summary.licenseCounts) {
-    console.log('License Distribution:');
-    Object.entries(analysis.summary.licenseCounts).forEach(([license, count]) => {
-      console.log(`  - ${license}: ${count} repositories`);
-    });
-  }
-}
+console.log(JSON.stringify(result, null, 2));
