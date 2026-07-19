@@ -33,7 +33,7 @@ jobs:
   ai-analysis:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write  # rolling compliance release (AIBOM/SBOM assets)
       issues: write
       pull-requests: read
       models: read
@@ -213,6 +213,25 @@ jobs:
             ai-analysis-result.json
             analysis-report.md
             risk-matrix.json
+
+      - name: Publish compliance artifacts to rolling release
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=compliance-latest
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --title "Compliance artifacts (rolling)" \
+              --notes "Latest AIBOM, SBOM, and license analysis." \
+              --latest=false
+          fi
+          gh release upload "$TAG" aibom.json license-analysis.json analysis-report.md --clobber --repo "$GITHUB_REPOSITORY"
+          if [ -f sbom.json ]; then
+            gh release upload "$TAG" sbom.json --clobber --repo "$GITHUB_REPOSITORY"
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --notes "Latest AIBOM (CycloneDX), SBOM (SPDX), license analysis, and report. Updated $(date -u +%Y-%m-%dT%H:%M:%SZ) by run ${GITHUB_RUN_ID}. These assets are refreshed on every scheduled or manual analysis run; the tag does not track a specific commit."
 
       - name: Create or update analysis issue
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

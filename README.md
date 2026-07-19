@@ -95,6 +95,17 @@ AI analysis run (`ai-dependency-analysis` artifact): raw repository data, the SB
 
 Scorecard run (`security-report` artifact): the security report, npm audit JSON, and the Scorecard SARIF file. The SARIF results are also uploaded to the repository's Security tab.
 
+### Stable Compliance URLs
+
+Workflow artifacts expire after 90 days, so each analysis run also refreshes the assets of the rolling `compliance-latest` release, giving permanent, stable download URLs:
+
+```
+https://github.com/<owner>/<repo>/releases/download/compliance-latest/aibom.json
+https://github.com/<owner>/<repo>/releases/download/compliance-latest/sbom.json
+https://github.com/<owner>/<repo>/releases/download/compliance-latest/license-analysis.json
+https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-report.md
+```
+
 ## Demo Application
 
 `demo-app/` contains a small Python agent (Strands Agents + the OpenAI SDK) that exists as an analysis subject: its dependencies appear in the dependency graph and therefore in the SBOM, OSV, and license checks, and its AI SDK usage is what the ai-finder AIBOM step detects. It doubles as a usage example — it reads a generated analysis report and produces a three-bullet executive summary (requires `OPENAI_API_KEY` to actually run).
