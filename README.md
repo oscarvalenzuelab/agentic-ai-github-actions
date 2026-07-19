@@ -1,10 +1,10 @@
 # Agentic AI Workflow for Supply Chain Analysis using GitHub Actions
 
-GitHub Actions workflows that help an OSPO evaluate the health, security, and sustainability of npm dependencies. The pipeline combines native GitHub supply chain data (dependency graph, OpenSSF Scorecard), known-vulnerability data from OSV.dev, and model-driven assessments via GitHub Models.
+GitHub Actions workflows that help an OSPO evaluate the health, security, and sustainability of open source dependencies (npm and Python). The pipeline combines native GitHub supply chain data (dependency graph, OpenSSF Scorecard), known-vulnerability data from OSV.dev, and model-driven assessments via GitHub Models.
 
 ## What It Does
 
-Two independent workflows:
+Three workflows:
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
@@ -46,7 +46,7 @@ The rule-based fallback implements the same five modes with heuristics.
 1. Enable GitHub Actions on the repository.
 2. Ensure the dependency graph is enabled (on by default for public repositories; Settings > Security for private ones).
 3. Ensure GitHub Models is available to the repository or organization (Settings > Models). If it is not, the workflow still runs and uses the rule-based fallback.
-4. For the remediation agent: GitHub Copilot must be enabled for the account (any plan; the free tier fits open source and evaluation use, while professional use will likely require a paid plan), and the repository needs one secret — a fine-grained PAT with the Copilot Requests permission:
+4. For the remediation agent: GitHub Copilot must be enabled for the account (see the known limitation below regarding current behavior in Actions), and the repository needs one secret — a fine-grained PAT with the Copilot Requests permission:
    1. Open https://github.com/settings/personal-access-tokens/new
    2. Set **Resource owner** to your personal account — the Copilot Requests permission is only available on user-owned tokens, so it will not appear if an organization is selected
    3. Repository access: "Public repositories" is sufficient
@@ -66,7 +66,7 @@ The analysis and Scorecard workflows require no repository secrets. The remediat
 ### Running Manually
 
 1. Go to the Actions tab.
-2. Select "OpenSSF Scorecard Analysis" or "AI-Powered Dependency Analysis".
+2. Select "OpenSSF Scorecard Analysis", "AI-Powered Dependency Analysis", or "Dependency Remediation Agent".
 3. Click "Run workflow". For the AI analysis you can choose the analysis type and override the model (default: `openai/gpt-4o-mini`; any model in the [GitHub Models catalog](https://github.com/marketplace/models) works).
 
 ### Running Locally
@@ -90,7 +90,7 @@ pip install ai-finder && ai-finder scan . -f cyclonedx -o aibom.json
 ## Scripts
 
 Data collection:
-- `extract-dependencies.js` — enumerates the dependency tree from an SBOM file argument (or `package.json` without one) and maps direct dependencies to their GitHub repositories via the npm registry
+- `extract-dependencies.js` — enumerates the dependency tree (npm and PyPI packages) from an SBOM file argument, or `package.json` without one, and maps direct dependencies to their GitHub repositories via the npm registry
 - `fetch-osv-vulns.js` — batch-queries OSV.dev for known vulnerabilities across the dependency set
 - `analyze-licenses-ospac.js` — evaluates every package license against the project license using the OSPAC dataset (compatibility, copyleft exposure, obligations)
 - `prepare-analysis-context.js` — aggregates raw repository data into per-repo metrics and health scores
@@ -127,7 +127,7 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-r
 
 Design constraints:
 
-- Runs on the Copilot engine with the CLI's automatic model routing (no model is pinned in the frontmatter), which selects a model available to the account's Copilot plan. Note: Copilot Free rejects explicitly pinned models, and the lock file carries a post-compile Copilot CLI version bump (1.0.65 to 1.0.71) that `gh aw compile` will revert — re-apply it or upgrade gh-aw when recompiling.
+- Runs on the Copilot engine with `model: gpt-5-mini` in the frontmatter (matched against gh-aw's proxy model table). The lock file also carries a post-compile Copilot CLI version bump (1.0.65 to 1.0.71) that `gh aw compile` will revert — re-apply it or upgrade gh-aw when recompiling.
 - Authenticates with the `COPILOT_GITHUB_TOKEN` repository secret — a fine-grained PAT with the Copilot Requests permission (see Setup). This carries the account's Copilot plan entitlement into the workflow.
 - All writes go through gh-aw safe-outputs (one PR, at most one comment); the agent itself runs sandboxed with read-only permissions, an egress firewall, and hard caps (`max-turns: 15`, `max-ai-credits: 100`).
 - The runnable workflow is the compiled `dependency-remediation.lock.yml`. To change the agent, edit the `.md` file and run `gh aw compile` (requires the [gh-aw extension](https://github.com/github/gh-aw)). `agentics-maintenance.yml` is gh-aw housekeeping that keeps compiled workflows current.
@@ -145,13 +145,13 @@ Design constraints:
 
 ## Security Considerations
 
-- All workflows run under least-privilege permissions. Write scopes: `issues: write` (tracking issues), `security-events: write` (SARIF upload), `contents: write` (refreshing the compliance release), and `copilot-requests: write` (agent inference). The remediation agent itself runs read-only; its PR and comment go through validated safe-outputs.
+- All workflows run under least-privilege permissions. Write scopes: `issues: write` (tracking issues), `security-events: write` (SARIF upload), and `contents: write` (refreshing the compliance release). The remediation agent job itself runs read-only; its PR and comment go through validated safe-outputs.
 - All actions are pinned to full commit SHAs.
 - The analysis workflows use no API keys or secrets; the remediation agent uses one repository secret (`COPILOT_GITHUB_TOKEN`, a fine-grained Copilot PAT). The external services contacted are the npm registry (package metadata), OSV.dev (vulnerability data), and PyPI (installing ai-finder); the OSPAC dataset is fetched from its GitHub release. AI inference stays within GitHub via GitHub Models.
 
 ## Limitations
 
-- Deep repository metrics (contributors, activity, community health) cover direct dependencies with discoverable GitHub repositories; transitive packages still get vulnerability and license coverage.
+- Deep repository metrics (contributors, activity, community health) cover direct dependencies with discoverable GitHub repositories. Transitive packages get license coverage regardless, and vulnerability coverage when the SBOM records exact versions (packages declared only as ranges, such as unlocked Python requirements, are skipped by the OSV check).
 - GitHub Models free-tier rate limits apply to AI analysis; scheduled weekly runs fit comfortably within them.
 - Health and risk scores are heuristics intended for triage, not verdicts.
 - GitHub REST API rate limits may slow metric collection for very large direct-dependency sets.
