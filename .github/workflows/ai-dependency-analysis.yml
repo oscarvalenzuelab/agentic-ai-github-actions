@@ -75,6 +75,35 @@ jobs:
             echo '{"packagesQueried":0,"packagesWithVulns":0,"totalVulns":0,"vulnerablePackages":[]}' > osv-vulns.json
           fi
 
+      - name: License policy analysis (OSPAC)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Latest OSPAC dataset: per-license obligations and compatibility verdicts
+          if gh release download -R SemClone/ospac --pattern 'ospac-data-*.tar.gz' -O ospac-data.tar.gz \
+             && mkdir -p ospac && tar xzf ospac-data.tar.gz -C ospac \
+             && node scripts/analyze-licenses-ospac.js ospac/data dependencies.json sbom.json > license-analysis.json; then
+            echo "OSPAC: $(jq '.packagesEvaluated' license-analysis.json) packages evaluated against ${{ github.repository }} license"
+            echo "Copyleft: $(jq '.copyleft | length' license-analysis.json), incompatible: $(jq '.incompatible | length' license-analysis.json), needs review: $(jq '.requiresReview | length' license-analysis.json)"
+          else
+            echo "OSPAC analysis unavailable; continuing without license policy data"
+            echo '{"packagesEvaluated":0,"distribution":{},"copyleft":[],"incompatible":[],"requiresReview":[],"unknownLicenses":[]}' > license-analysis.json
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Generate AIBOM (SCANOSS ai-finder)
+        run: |
+          if pip install --quiet ai-finder && ai-finder scan . -f cyclonedx -o aibom.json; then
+            echo "AIBOM: $(jq '.components | length' aibom.json) AI components detected"
+          else
+            echo "ai-finder unavailable; continuing without AIBOM"
+            echo '{"bomFormat":"CycloneDX","specVersion":"1.6","components":[]}' > aibom.json
+          fi
+
       - name: Collect GitHub repository metrics
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -119,8 +148,8 @@ jobs:
         env:
           ANALYSIS_TYPE: ${{ github.event.inputs.analysis_type || 'comprehensive' }}
         run: |
-          # User prompt: the summarized dependency metrics + known vulnerabilities
-          node scripts/build-ai-prompt.js analysis-context.json osv-vulns.json > ai-user-prompt.txt
+          # User prompt: metrics + vulnerabilities + license policy + AI components
+          node scripts/build-ai-prompt.js analysis-context.json osv-vulns.json license-analysis.json aibom.json > ai-user-prompt.txt
 
           # System prompt: the selected analysis persona + a strict JSON contract
           PROMPT_FILE="analysis-prompts/${ANALYSIS_TYPE}.md"
@@ -214,6 +243,8 @@ jobs:
             repo-data/
             sbom.json
             osv-vulns.json
+            license-analysis.json
+            aibom.json
             analysis-context.json
             ai-analysis-result.json
             ai-analysis-report.md

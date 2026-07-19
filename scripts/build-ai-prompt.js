@@ -9,16 +9,21 @@ const fs = require('fs');
 const contextFile = process.argv[2] || 'analysis-context.json';
 const context = JSON.parse(fs.readFileSync(contextFile, 'utf8'));
 
-// Optional: OSV.dev vulnerability summary (from fetch-osv-vulns.js)
-const osvFile = process.argv[3];
-let osv = null;
-if (osvFile && fs.existsSync(osvFile)) {
+// Optional inputs; each is skipped silently if missing or malformed:
+//   argv[3] OSV.dev vulnerability summary   (fetch-osv-vulns.js)
+//   argv[4] OSPAC license policy analysis   (analyze-licenses-ospac.js)
+//   argv[5] AIBOM in CycloneDX format       (SCANOSS ai-finder)
+function readOptionalJson(file) {
+  if (!file || !fs.existsSync(file)) return null;
   try {
-    osv = JSON.parse(fs.readFileSync(osvFile, 'utf8'));
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (e) {
-    /* proceed without vulnerability data */
+    return null;
   }
 }
+const osv = readOptionalJson(process.argv[3]);
+const licensePolicy = readOptionalJson(process.argv[4]);
+const aibom = readOptionalJson(process.argv[5]);
 
 const summarizedContext = {
   analysisDate: context.analysisDate,
@@ -51,6 +56,31 @@ const summarizedContext = {
       .filter(r => r.metrics.contributionConcentration > 0.8).length
   }
 };
+
+// License policy evaluation against the project license (OSPAC data)
+if (licensePolicy && licensePolicy.packagesEvaluated > 0) {
+  summarizedContext.licensePolicy = {
+    projectLicense: licensePolicy.projectLicense,
+    packagesEvaluated: licensePolicy.packagesEvaluated,
+    distribution: licensePolicy.distribution,
+    copyleft: licensePolicy.copyleft,
+    incompatibleWithProjectLicense: licensePolicy.incompatible,
+    requiresLegalReview: licensePolicy.requiresReview,
+    packagesWithUnknownLicense: licensePolicy.unknownLicenses.slice(0, 10)
+  };
+}
+
+// AI components detected in the codebase (SCANOSS ai-finder AIBOM)
+if (aibom) {
+  summarizedContext.aiComponents = {
+    detected: (aibom.components || []).length,
+    components: (aibom.components || []).slice(0, 15).map(c => ({
+      name: c.name,
+      type: c.type,
+      version: c.version
+    }))
+  };
+}
 
 // Known vulnerabilities across the full dependency tree (OSV.dev)
 if (osv) {
