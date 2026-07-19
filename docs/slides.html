@@ -1,0 +1,398 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supply Chain Analysis for the OSPO</title>
+<style>
+  :root {
+    --ground: #FAF9F5;
+    --ink: #1E252B;
+    --muted: #5C6670;
+    --accent: #1A6B5A;
+    --accent-soft: #E3EEE9;
+    --warn: #A87B18;
+    --bad: #AE4A3C;
+    --line: #D9D6CC;
+    --card: #FFFFFF;
+    --mono: "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --serif: Charter, "Bitstream Charter", Cambria, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #15191C; --ink: #E6E2D8; --muted: #97A0A8;
+      --accent: #53B597; --accent-soft: #1E2E29; --warn: #D2A64A;
+      --bad: #D07A6C; --line: #333B41; --card: #1C2226;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #15191C; --ink: #E6E2D8; --muted: #97A0A8;
+    --accent: #53B597; --accent-soft: #1E2E29; --warn: #D2A64A;
+    --bad: #D07A6C; --line: #333B41; --card: #1C2226;
+  }
+  :root[data-theme="light"] {
+    --ground: #FAF9F5; --ink: #1E252B; --muted: #5C6670;
+    --accent: #1A6B5A; --accent-soft: #E3EEE9; --warn: #A87B18;
+    --bad: #AE4A3C; --line: #D9D6CC; --card: #FFFFFF;
+  }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: var(--sans); overflow: hidden;
+  }
+
+  .deck { position: relative; width: 100vw; height: 100vh; }
+  .slide {
+    position: absolute; inset: 0; display: none;
+    padding: clamp(2rem, 6vh, 4.5rem) clamp(2rem, 8vw, 7rem);
+    flex-direction: column; justify-content: center;
+    box-sizing: border-box; overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 1rem;
+  }
+  h1, h2 {
+    font-family: var(--serif); font-weight: 700; text-wrap: balance;
+    margin: 0 0 1.4rem; line-height: 1.12;
+  }
+  h1 { font-size: clamp(2rem, 5vw, 3.4rem); }
+  h2 { font-size: clamp(1.5rem, 3.6vw, 2.4rem); }
+  p, li { font-size: clamp(0.95rem, 1.6vw, 1.15rem); line-height: 1.55; }
+  p { max-width: 62ch; }
+  ul { margin: 0; padding-left: 1.2rem; max-width: 68ch; }
+  li { margin-bottom: 0.55rem; }
+  li::marker { color: var(--accent); }
+  strong { color: var(--accent); font-weight: 650; }
+  .muted { color: var(--muted); }
+  code {
+    font-family: var(--mono); font-size: 0.88em;
+    background: var(--accent-soft); padding: 0.08em 0.35em; border-radius: 3px;
+  }
+
+  table {
+    border-collapse: collapse; width: 100%; max-width: 62rem;
+    font-size: clamp(0.85rem, 1.4vw, 1.02rem);
+    font-variant-numeric: tabular-nums;
+  }
+  th {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em;
+    text-transform: uppercase; text-align: left; color: var(--muted);
+    padding: 0.5rem 1rem 0.5rem 0; border-bottom: 1.5px solid var(--ink);
+  }
+  td { padding: 0.55rem 1rem 0.55rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+
+  .cols { display: flex; gap: clamp(1.5rem, 4vw, 4rem); align-items: flex-start; flex-wrap: wrap; }
+  .cols > div { flex: 1 1 18rem; min-width: 16rem; }
+
+  .toolgrid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 1rem; max-width: 66rem;
+  }
+  .tool {
+    background: var(--card); border: 1px solid var(--line);
+    padding: 1rem 1.2rem; border-radius: 4px;
+  }
+  .tool .name { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.4rem; }
+  .tool .what { font-size: 0.95rem; line-height: 1.45; }
+  .tool.hi { border-color: var(--accent); border-width: 1.5px; }
+
+  .flow { list-style: none; padding: 0; max-width: 64rem; counter-reset: step;
+          display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 0.5rem 2.5rem; }
+  .flow li { counter-increment: step; display: flex; gap: 0.8rem; align-items: baseline; margin-bottom: 0.35rem; }
+  .flow li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--mono); font-size: 0.78rem; color: var(--accent); flex: none;
+  }
+
+  .report {
+    background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    font-family: var(--mono); font-size: clamp(0.7rem, 1.15vw, 0.85rem); line-height: 1.55;
+    padding: 1.1rem 1.4rem; max-width: 58rem; white-space: pre; overflow-x: auto;
+    border-radius: 4px;
+  }
+  .report .ok { color: var(--accent); }
+  .report .risk { color: var(--warn); }
+
+  .big { font-family: var(--serif); font-size: clamp(1.3rem, 2.6vw, 1.9rem); line-height: 1.35; max-width: 30ch; text-wrap: balance; }
+
+  .counter {
+    position: fixed; bottom: 1.1rem; right: 1.4rem; z-index: 5;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
+  }
+  .progress {
+    position: fixed; bottom: 0; left: 0; height: 3px; background: var(--accent);
+    transition: width 0.25s ease; z-index: 5;
+  }
+  @media (prefers-reduced-motion: reduce) { .progress { transition: none; } }
+  .navhint {
+    position: fixed; bottom: 1.1rem; left: 1.4rem; z-index: 5;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
+  }
+  .zone { position: fixed; top: 0; bottom: 3rem; width: 18vw; z-index: 4; cursor: pointer; }
+  .zone.prev { left: 0; } .zone.next { right: 0; }
+  .zone:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+
+  .foot { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); margin-top: 2rem; }
+  .kv { display: flex; gap: 2.5rem; flex-wrap: wrap; margin-top: 1.5rem; }
+  .kv div { font-family: var(--mono); font-size: 0.85rem; }
+  .kv .n { font-family: var(--serif); font-size: 2.2rem; font-weight: 700; color: var(--accent); display: block; font-variant-numeric: tabular-nums; }
+</style>
+
+<div class="deck" id="deck">
+
+<!-- 1 · Title -->
+<section class="slide active">
+  <p class="eyebrow">OSPO tooling · 15 minutes</p>
+  <h1>Supply Chain Analysis with Agentic AI on GitHub Actions</h1>
+  <p class="big muted">Turning raw dependency signals into weekly, defensible judgment — with no keys, no vendors, and no bill.</p>
+  <p class="foot">github.com/oscarvalenzuelab/agentic-ai-github-actions</p>
+</section>
+
+<!-- 2 · The problem -->
+<section class="slide">
+  <p class="eyebrow">The problem</p>
+  <h2>You ship 9 dependencies. You inherit 120.</h2>
+  <ul>
+    <li>Every direct dependency pulls a tree of transitive ones — each a package you now effectively maintain.</li>
+    <li>Four risk surfaces, usually watched by nobody: <strong>known vulnerabilities</strong>, <strong>license obligations</strong>, <strong>maintainer abandonment</strong>, and — new — <strong>embedded AI components</strong>.</li>
+    <li>Real example from this repo: a dependency pinned as "fixed" in March had accumulated <strong>22 new advisories</strong> by July, including a man-in-the-middle vector. Nobody was looking.</li>
+  </ul>
+  <div class="kv">
+    <div><span class="n">120</span>packages in tree</div>
+    <div><span class="n">9</span>reviewed by humans</div>
+    <div><span class="n">22</span>advisories on one "fixed" pin</div>
+  </div>
+</section>
+
+<!-- 3 · The gap -->
+<section class="slide">
+  <p class="eyebrow">The gap</p>
+  <h2>Native tools emit signals. An OSPO needs judgment.</h2>
+  <table>
+    <tr><th>Need</th><th>Dependabot</th><th>Scorecard</th><th>This pipeline</th></tr>
+    <tr><td>Known vulnerabilities</td><td>Yes</td><td>Partial</td><td>Yes — full tree, OSV.dev</td></tr>
+    <tr><td>License policy vs your license</td><td>No</td><td>No</td><td>Yes — OSPAC verdicts</td></tr>
+    <tr><td>Maintainer burnout / bus factor</td><td>No</td><td>No</td><td>Yes — activity + concentration</td></tr>
+    <tr><td>AI bill of materials</td><td>No</td><td>No</td><td>Yes — ai-finder AIBOM</td></tr>
+    <tr><td>A narrative someone can act on</td><td>No</td><td>No</td><td>Yes — one weekly report</td></tr>
+  </table>
+</section>
+
+<!-- 4 · The approach -->
+<section class="slide">
+  <p class="eyebrow">The approach</p>
+  <h2>Evidence is scripted. Only the narrative is generated.</h2>
+  <div class="cols">
+    <div>
+      <p><strong>1 · Collect</strong><br>Deterministic scripts gather SBOM, advisories, license verdicts, AIBOM, and repository metrics. Reproducible, auditable, no model involved.</p>
+    </div>
+    <div>
+      <p><strong>2 · Assess</strong><br>GitHub Models reads the evidence and writes the assessment: overall risk, critical findings, recommendations. One bounded inference per week.</p>
+    </div>
+    <div>
+      <p><strong>3 · Remediate</strong><br>An agentic workflow acts on the findings: bumps vulnerable dependencies and opens a single reviewed pull request. Optional, sandboxed, capped.</p>
+    </div>
+  </div>
+  <p class="foot">A compliance artifact is only defensible if the data underneath it is deterministic.</p>
+</section>
+
+<!-- 5 · Tools and data sources -->
+<section class="slide">
+  <p class="eyebrow">Tools &amp; data sources</p>
+  <h2>Seven sources, all open, all free</h2>
+  <div class="toolgrid">
+    <div class="tool"><div class="name">Dependency graph</div><div class="what">GitHub-native SBOM: full tree, exact resolved versions, npm + PyPI, SPDX format.</div></div>
+    <div class="tool"><div class="name">OSV.dev</div><div class="what">Google's open vulnerability database. Batch-queried per exact package version. No auth.</div></div>
+    <div class="tool hi"><div class="name">OSPAC ★</div><div class="what">Open Source Policy as Code — 700+ SPDX licenses with obligations and pairwise compatibility verdicts.</div></div>
+    <div class="tool hi"><div class="name">ai-finder ★</div><div class="what">SCANOSS scanner for AI artifacts: 150+ AI packages, 12 SDK languages, model files. Emits a CycloneDX AIBOM.</div></div>
+    <div class="tool"><div class="name">OpenSSF Scorecard</div><div class="what">Security-posture scoring of the repository, SARIF into the GitHub Security tab.</div></div>
+    <div class="tool"><div class="name">GitHub REST metrics</div><div class="what">Contributors, commit cadence, issue latency, releases, community profile — per direct dependency.</div></div>
+    <div class="tool"><div class="name">GitHub Models</div><div class="what">In-platform inference with the built-in workflow token. No API key, no external egress.</div></div>
+  </div>
+</section>
+
+<!-- 6 · OSPAC spotlight -->
+<section class="slide">
+  <p class="eyebrow">Spotlight · OSPAC</p>
+  <h2>License policy as data, not opinion</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>A versioned dataset: every SPDX license with <strong>properties, obligations, and limitations</strong> — plus pairwise compatibility matrices (static linking, dynamic linking, distribution).</li>
+        <li>The pipeline evaluates <strong>every license in the tree</strong> against the project's own license and returns verdicts: compatible, incompatible, requires review.</li>
+        <li>Unknown licenses are surfaced honestly instead of guessed.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="report">120 packages vs Apache-2.0
+──────────────────────────────
+MIT           113   <span class="ok">compatible</span>
+ISC             2   <span class="ok">compatible</span>
+BSD-2-Clause    1   <span class="ok">compatible</span>
+BSD-3-Clause    1   <span class="ok">compatible</span>
+unknown         3   <span class="risk">review</span></div>
+      <p class="foot">Real output — weekly run, this repository.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 7 · ai-finder spotlight -->
+<section class="slide">
+  <p class="eyebrow">Spotlight · ai-finder</p>
+  <h2>The AIBOM: what AI is in your software?</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li>Scans code and manifests for <strong>AI SDKs, packages, and model files</strong> — OpenAI, Anthropic, LangChain, Strands, HuggingFace, GGUF/ONNX weights, and more.</li>
+        <li>Emits a <strong>CycloneDX 1.6 AI bill of materials</strong> — the inventory format regulators expect for EU AI Act reporting.</li>
+        <li>Licenses enriched from PyPI, npm, and HuggingFace automatically.</li>
+      </ul>
+    </div>
+    <div>
+      <div class="report">aibom.json · CycloneDX 1.6
+──────────────────────────────
+openai@1.40            Apache-2.0
+strands-agents@1.0     Apache-2.0
+strands-agents-tools   Apache-2.0
+strands (SDK usage)    MIT
+strands-agent (code)   —</div>
+      <p class="foot">Detected from the repo's demo agent app — 5 components, licensed and versioned.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 8 · Pipeline -->
+<section class="slide">
+  <p class="eyebrow">How it runs</p>
+  <h2>One weekly workflow, ten steps</h2>
+  <ol class="flow">
+    <li>Pull the SBOM from the dependency graph — full tree, exact versions</li>
+    <li>Batch-query OSV.dev for known vulnerabilities</li>
+    <li>Evaluate every license against project policy (OSPAC)</li>
+    <li>Scan for AI components, emit the AIBOM (ai-finder)</li>
+    <li>Collect repository metrics for each direct dependency</li>
+    <li>Compute 0–100 health scores (activity, bus factor, releases)</li>
+    <li>Feed all evidence to GitHub Models with the selected analysis prompt</li>
+    <li>Fall back to rule-based analysis if the model is unavailable</li>
+    <li>Compose one consolidated report; file it as a tracking issue</li>
+    <li>Publish AIBOM, SBOM, license verdicts to stable release URLs</li>
+  </ol>
+  <p class="foot">Every step degrades gracefully — the workflow always produces a report.</p>
+</section>
+
+<!-- 9 · Output -->
+<section class="slide">
+  <p class="eyebrow">The output</p>
+  <h2>One issue your team actually reads</h2>
+  <div class="cols">
+    <div>
+      <div class="report"># Dependency Analysis — 2026-07-19
+
+<span class="risk">Overall risk: Medium</span>
+
+Critical findings
+· chalk: no recent activity,
+  possible abandonment
+· winston: contribution
+  concentration + stale releases
+
+Known vulnerabilities
+<span class="ok">None. 117 versions checked.</span>
+
+AI components: 5 detected</div>
+    </div>
+    <div>
+      <p><strong>Plus permanent compliance URLs</strong> — refreshed every run, no expiry, no auth:</p>
+      <p class="foot">…/releases/download/compliance-latest/<br>&nbsp;&nbsp;aibom.json<br>&nbsp;&nbsp;sbom.json<br>&nbsp;&nbsp;license-analysis.json<br>&nbsp;&nbsp;analysis-report.md</p>
+      <p>Hand these to auditors, dashboards, or downstream tooling as-is.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 10 · Remediation agent -->
+<section class="slide">
+  <p class="eyebrow">Closing the loop</p>
+  <h2>The agent that fixes what the report finds</h2>
+  <ul>
+    <li>A <strong>GitHub Agentic Workflow</strong> triggers after each analysis: reads the OSV findings, bumps vulnerable dependencies, regenerates the lockfile, verifies the audit improves.</li>
+    <li>All writes pass through <strong>validated safe-outputs</strong>: exactly one pull request and one issue comment. The agent itself is read-only, sandboxed, behind an egress firewall.</li>
+    <li>Hard caps: 15 turns, $1.00 of AI credits per run. Humans review the PR — the agent never merges.</li>
+  </ul>
+  <p class="foot">Evidence pipeline recommends → agent proposes → human disposes.</p>
+</section>
+
+<!-- 11 · Cost -->
+<section class="slide">
+  <p class="eyebrow">What it costs</p>
+  <h2>The entire stack runs on zero</h2>
+  <table>
+    <tr><th>Component</th><th>Provider</th><th>Cost</th></tr>
+    <tr><td>Compute (weekly runs)</td><td>GitHub Actions, public repo</td><td>$0</td></tr>
+    <tr><td>AI assessment</td><td>GitHub Models, built-in token</td><td>$0</td></tr>
+    <tr><td>Vulnerability data</td><td>OSV.dev</td><td>$0</td></tr>
+    <tr><td>License policy data</td><td>OSPAC (open dataset)</td><td>$0</td></tr>
+    <tr><td>AIBOM scanning</td><td>ai-finder (open source)</td><td>$0</td></tr>
+    <tr><td>Remediation agent</td><td>Copilot, included model</td><td>$0 within allowance</td></tr>
+  </table>
+  <p class="foot">No API keys. No repository secrets. No vendor contracts.</p>
+</section>
+
+<!-- 12 · Adapting it -->
+<section class="slide">
+  <p class="eyebrow">Making it yours</p>
+  <h2>Three files control everything</h2>
+  <ul>
+    <li><strong>Prompts</strong> — <code>analysis-prompts/*.md</code> are the analysis personas: comprehensive, security-focused, maintainer-burnout, community-health, license-compliance. Add a file, add a workflow option — done. A strict JSON contract is appended automatically so output stays parseable.</li>
+    <li><strong>Model</strong> — a workflow input; any model in the GitHub Models catalog. Default is a small, free one.</li>
+    <li><strong>Subject</strong> — point it at your own repository: the dependency graph, prompts, and reports follow automatically. Schedules are two cron lines.</li>
+  </ul>
+</section>
+
+<!-- 13 · Takeaways -->
+<section class="slide">
+  <p class="eyebrow">For the OSPO</p>
+  <h2>What you get on Monday morning</h2>
+  <ul>
+    <li>A <strong>weekly, versioned risk narrative</strong> across the whole dependency tree — not a wall of alerts.</li>
+    <li><strong>Defensible compliance artifacts</strong> — SBOM, AIBOM, license verdicts — at permanent URLs, generated from deterministic data.</li>
+    <li><strong>Early warnings</strong> the native tools don't send: burnout, abandonment, license drift, AI creep.</li>
+    <li>A remediation PR already waiting when something is fixable.</li>
+  </ul>
+  <p class="foot">github.com/oscarvalenzuelab/agentic-ai-github-actions · Apache-2.0</p>
+</section>
+
+</div>
+
+<div class="zone prev" tabindex="0" role="button" aria-label="Previous slide"></div>
+<div class="zone next" tabindex="0" role="button" aria-label="Next slide"></div>
+<div class="navhint">← → to navigate</div>
+<div class="counter" id="counter"></div>
+<div class="progress" id="progress"></div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  let i = Math.min(Math.max((parseInt(location.hash.slice(1), 10) || 1) - 1, 0), slides.length - 1);
+
+  function show(n) {
+    i = Math.min(Math.max(n, 0), slides.length - 1);
+    slides.forEach((s, k) => s.classList.toggle('active', k === i));
+    document.getElementById('counter').textContent = String(i + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0');
+    document.getElementById('progress').style.width = ((i + 1) / slides.length * 100) + '%';
+    history.replaceState(null, '', '#' + (i + 1));
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    if (e.key === 'Home') show(0);
+    if (e.key === 'End') show(slides.length - 1);
+  });
+  document.querySelector('.zone.next').addEventListener('click', () => show(i + 1));
+  document.querySelector('.zone.prev').addEventListener('click', () => show(i - 1));
+  document.querySelectorAll('.zone').forEach(z => z.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') z.click();
+  }));
+  show(i);
+</script>
