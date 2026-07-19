@@ -48,7 +48,11 @@ The rule-based fallback implements the same five modes with heuristics.
 1. Enable GitHub Actions on the repository.
 2. Ensure the dependency graph is enabled (on by default for public repositories; Settings > Security for private ones).
 3. Ensure GitHub Models is available to the repository or organization (Settings > Models). If it is not, the workflow still runs and uses the rule-based fallback.
-4. Optional: the remediation agent. Skip this entirely if you only want the analysis and reports; the first two workflows are fully independent of it. The agent requires a paid GitHub Copilot plan (Pro, Pro+, Business, or Enterprise), plus one repository secret, a fine-grained PAT with the Copilot Requests permission:
+4. Optional: the remediation agent. Skip this entirely if you only want the analysis and reports; the first two workflows are fully independent of it. The agent engine is pluggable:
+   - **GitHub Copilot** (`engine: copilot`): requires a paid Copilot plan (Pro, Pro+, Business, or Enterprise) plus one repository secret, a fine-grained PAT with the Copilot Requests permission (steps below).
+   - **An external LLM provider**, for accounts without a suitable Copilot plan: set `engine: codex` with an `OPENAI_API_KEY` secret, `engine: claude` with `ANTHROPIC_API_KEY`, or `engine: gemini` with `GEMINI_API_KEY`, then run `gh aw compile`. Billing is per token with that provider, and the agent's reasoning flows through the external API.
+
+   For the Copilot engine, create the PAT as follows:
    1. Open https://github.com/settings/personal-access-tokens/new
    2. Set **Resource owner** to your personal account. The Copilot Requests permission is only available on user-owned tokens, so it will not appear if an organization is selected
    3. Repository access: "Public repositories" is sufficient
@@ -61,7 +65,7 @@ The rule-based fallback implements the same five modes with heuristics.
 
    Notes: OAuth tokens (`gho_...`) and classic PATs (`ghp_...`) are rejected. It must be a fine-grained PAT.
 
-   **Note:** the remediation agent is optional and requires a paid GitHub Copilot plan (Pro, Pro+, Business, or Enterprise). The analysis and Scorecard workflows work without it.
+   **Note:** the remediation agent is optional. It runs on a paid GitHub Copilot plan (Pro, Pro+, Business, or Enterprise), or on an external LLM provider API key when no suitable Copilot plan is available (see the engine options above). The analysis and Scorecard workflows work without it.
 
 The analysis and Scorecard workflows require no repository secrets. The remediation agent requires the single `COPILOT_GITHUB_TOKEN` secret described above.
 
@@ -129,7 +133,7 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-r
 
 Design constraints:
 
-- Runs on the Copilot engine with `model: gpt-5-mini` in the frontmatter (matched against gh-aw's proxy model table). The lock file also carries a post-compile Copilot CLI version bump (1.0.65 to 1.0.71) that `gh aw compile` will revert; re-apply it or upgrade gh-aw when recompiling.
+- The engine is set in the `.md` frontmatter and is pluggable: GitHub Copilot, or an external LLM provider key (OpenAI, Anthropic, Gemini) for accounts without a suitable Copilot plan. See Setup.
 - Authenticates with the `COPILOT_GITHUB_TOKEN` repository secret, a fine-grained PAT with the Copilot Requests permission (see Setup). This carries the account's Copilot plan entitlement into the workflow.
 - All writes go through gh-aw safe-outputs (one PR, at most one comment); the agent itself runs sandboxed with read-only permissions, an egress firewall, and hard caps (`max-turns: 15`, `max-ai-credits: 100`).
 - The runnable workflow is the compiled `dependency-remediation.lock.yml`. To change the agent, edit the `.md` file and run `gh aw compile` (requires the [gh-aw extension](https://github.com/github/gh-aw)). `agentics-maintenance.yml` is gh-aw housekeeping that keeps compiled workflows current.
