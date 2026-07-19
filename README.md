@@ -67,7 +67,7 @@ node scripts/extract-dependencies.js > dependencies.json
 node scripts/fetch-osv-vulns.js dependencies.json
 
 # License policy analysis (download OSPAC data first)
-gh release download -R SemClone/ospac --pattern 'ospac-data-*.tar.gz' -O - | tar xz -C ospac-data
+mkdir -p ospac-data && gh release download -R SemClone/ospac --pattern 'ospac-data-*.tar.gz' -O - | tar xz -C ospac-data
 node scripts/analyze-licenses-ospac.js ospac-data/data dependencies.json
 
 # AIBOM (requires Python)
@@ -110,7 +110,7 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-r
 
 ## Automated Remediation
 
-`dependency-remediation.md` is a [GitHub Agentic Workflow](https://github.github.com/gh-aw/) that runs after each AI dependency analysis completes. It downloads the analysis artifacts, and if any direct dependency has known vulnerabilities with a fixed version available, it updates `package.json`, regenerates the lockfile, verifies `npm audit` improves, and opens a single pull request listing each bump and the advisory IDs it resolves. It also leaves one summary comment on the analysis tracking issue. If there is nothing to remediate, it only comments.
+`dependency-remediation.md` is a [GitHub Agentic Workflow](https://github.github.com/gh-aw/) that runs after each AI dependency analysis completes. It downloads the analysis artifacts (OSV vulnerabilities, the OSPAC license evaluation, the consolidated report), and if any direct dependency has known vulnerabilities with a fixed version available, it updates `package.json`, regenerates the lockfile, verifies `npm audit` improves, and opens a single pull request listing each bump and the advisory IDs it resolves. Its summary comment on the tracking issue also flags OSPAC license findings (incompatible, requires-review, or unknown licenses) for OSPO follow-up — it never modifies anything over a license finding. If there is nothing to remediate, it only comments.
 
 Design constraints:
 

@@ -37,7 +37,9 @@ is to act on its findings by preparing a remediation pull request.
 1. Download the `ai-dependency-analysis` artifact from the workflow run that
    triggered you. The relevant files are:
    - `osv-vulns.json` — known vulnerabilities per package (OSV.dev data)
-   - `actionable-insights.md` — prioritized findings
+   - `license-analysis.json` — OSPAC license policy evaluation: distribution,
+     incompatible licenses, licenses requiring review, unknown licenses
+   - `analysis-report.md` — the consolidated analysis report
    - `ai-analysis-result.json` — the analysis summary and recommendations
 2. Identify direct dependencies in `package.json` that have known
    vulnerabilities in `osv-vulns.json` with a fixed version available.
@@ -49,8 +51,12 @@ is to act on its findings by preparing a remediation pull request.
    confirm `npm audit` reports fewer vulnerabilities than before.
 5. Open a single pull request with all version bumps. In the description, list
    each package, the old and new version, and the vulnerability IDs resolved.
-6. Add one comment to the open issue labeled `ai-analysis` summarizing what the
-   pull request addresses and what (if anything) could not be auto-remediated.
+6. Add one comment to the open issue labeled `ai-analysis` that covers:
+   - what the pull request addresses and what could not be auto-remediated
+   - any license findings from `license-analysis.json` (incompatible,
+     requires-review, or unknown licenses), listing the affected packages.
+     Never attempt to change licenses or remove packages over license
+     findings — flag them for OSPO follow-up only.
 
 ## Constraints
 
