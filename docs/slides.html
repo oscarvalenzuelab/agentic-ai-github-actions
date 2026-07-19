@@ -317,7 +317,7 @@ AI components: 5 detected</div>
   <h2>The agent that fixes what the report finds</h2>
   <ul>
     <li>A <strong>GitHub Agentic Workflow</strong> triggers after each analysis: reads the evidence — OSV findings and OSPAC license verdicts — bumps vulnerable dependencies, regenerates the lockfile, verifies the audit improves, and flags license findings for OSPO follow-up.</li>
-    <li><strong>GitHub Copilot is the agent's core engine</strong> — native to Actions, authenticated with the built-in workflow token, running an included model. No PAT, no secrets, no external service.</li>
+    <li><strong>GitHub Copilot is the agent's core engine</strong> — native to Actions, running an included model chosen automatically from the plan. One repository secret: a fine-grained Copilot PAT.</li>
     <li>All writes pass through <strong>validated safe-outputs</strong>: exactly one pull request and one issue comment. The agent itself is read-only, sandboxed, behind an egress firewall.</li>
   </ul>
   <p class="foot">Evidence pipeline recommends → agent proposes → human disposes.</p>
@@ -336,7 +336,7 @@ AI components: 5 detected</div>
     <tr><td>AIBOM scanning</td><td>ai-finder (open source)</td><td>$0</td></tr>
     <tr><td>Remediation agent</td><td>Copilot, included model</td><td>$0 within allowance</td></tr>
   </table>
-  <p class="foot">No API keys. No repository secrets. No vendor contracts.</p>
+  <p class="foot">No API keys. No vendor contracts. One repository secret — a Copilot PAT — for the optional remediation agent only.</p>
 </section>
 
 <!-- 12 · Adapting it -->

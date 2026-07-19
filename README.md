@@ -46,9 +46,20 @@ The rule-based fallback implements the same five modes with heuristics.
 1. Enable GitHub Actions on the repository.
 2. Ensure the dependency graph is enabled (on by default for public repositories; Settings > Security for private ones).
 3. Ensure GitHub Models is available to the repository or organization (Settings > Models). If it is not, the workflow still runs and uses the rule-based fallback.
-4. For the remediation agent: GitHub Copilot must be enabled for the account (the Free plan is sufficient — the agent uses an included model).
+4. For the remediation agent: GitHub Copilot must be enabled for the account (the Free plan is sufficient), and the repository needs one secret — a fine-grained PAT with the Copilot Requests permission:
+   1. Open https://github.com/settings/personal-access-tokens/new
+   2. Set **Resource owner** to your personal account — the Copilot Requests permission is only available on user-owned tokens, so it will not appear if an organization is selected
+   3. Repository access: "Public repositories" is sufficient
+   4. Click **Add permissions** (the list is collapsed by default) and select **Copilot Requests**
+   5. Generate the token (`github_pat_...`) and store it as a repository Actions secret named `COPILOT_GITHUB_TOKEN`:
 
-No repository secrets are required.
+      ```bash
+      gh secret set COPILOT_GITHUB_TOKEN --repo <owner>/<repo>
+      ```
+
+   Notes: OAuth tokens (`gho_...`) and classic PATs (`ghp_...`) are rejected — it must be a fine-grained PAT. GitHub Actions also supports a secret-free path via the `copilot-requests: write` workflow permission, but as of July 2026 that token does not carry Copilot Free plan model entitlements, so this project uses the PAT.
+
+The analysis and Scorecard workflows require no repository secrets. The remediation agent requires the single `COPILOT_GITHUB_TOKEN` secret described above.
 
 ### Running Manually
 
@@ -114,8 +125,8 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-r
 
 Design constraints:
 
-- Runs on the Copilot engine with automatic model selection (`model: auto`), which works on every Copilot plan including Free and routes to included models, so runs stay within the plan allowance.
-- Authenticates with the built-in workflow token via the `copilot-requests: write` permission — no PAT or repository secret.
+- Runs on the Copilot engine with the CLI's automatic model routing (no model is pinned in the frontmatter). On the Free plan this routes to an included model, so runs stay within the plan allowance. Note: Copilot Free rejects explicitly pinned models, and the lock file carries a post-compile Copilot CLI version bump (1.0.65 to 1.0.71) that `gh aw compile` will revert — re-apply it or upgrade gh-aw when recompiling.
+- Authenticates with the `COPILOT_GITHUB_TOKEN` repository secret — a fine-grained PAT with the Copilot Requests permission (see Setup). This carries the account's Copilot plan entitlement into the workflow.
 - All writes go through gh-aw safe-outputs (one PR, at most one comment); the agent itself runs sandboxed with read-only permissions, an egress firewall, and hard caps (`max-turns: 15`, `max-ai-credits: 100`).
 - The runnable workflow is the compiled `dependency-remediation.lock.yml`. To change the agent, edit the `.md` file and run `gh aw compile` (requires the [gh-aw extension](https://github.com/github/gh-aw)). `agentics-maintenance.yml` is gh-aw housekeeping that keeps compiled workflows current.
 
@@ -134,7 +145,7 @@ Design constraints:
 
 - All workflows run under least-privilege permissions. Write scopes: `issues: write` (tracking issues), `security-events: write` (SARIF upload), `contents: write` (refreshing the compliance release), and `copilot-requests: write` (agent inference). The remediation agent itself runs read-only; its PR and comment go through validated safe-outputs.
 - All actions are pinned to full commit SHAs.
-- No external API keys or secrets are used. The external services contacted are the npm registry (package metadata), OSV.dev (vulnerability data), and PyPI (installing ai-finder); the OSPAC dataset is fetched from its GitHub release. AI inference stays within GitHub via GitHub Models.
+- The analysis workflows use no API keys or secrets; the remediation agent uses one repository secret (`COPILOT_GITHUB_TOKEN`, a fine-grained Copilot PAT). The external services contacted are the npm registry (package metadata), OSV.dev (vulnerability data), and PyPI (installing ai-finder); the OSPAC dataset is fetched from its GitHub release. AI inference stays within GitHub via GitHub Models.
 
 ## Limitations
 
