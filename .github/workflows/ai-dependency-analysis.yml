@@ -98,7 +98,7 @@ jobs:
 
       - name: Generate AIBOM (SCANOSS ai-finder)
         run: |
-          if pip install --quiet ai-finder && ai-finder scan . -f cyclonedx -o aibom.json; then
+          if pip install --quiet ai-finder==0.3.9 && ai-finder scan . -f cyclonedx -o aibom.json; then
             echo "AIBOM: $(jq '.components | length' aibom.json) AI components detected"
           else
             echo "ai-finder unavailable; continuing without AIBOM"
