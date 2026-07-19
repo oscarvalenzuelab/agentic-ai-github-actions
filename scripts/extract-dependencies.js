@@ -13,24 +13,28 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 // resolved versions) is taken from the SBOM instead of package.json alone.
 const sbomPath = process.argv[2];
 
+const SUPPORTED_ECOSYSTEMS = ['npm', 'pypi'];
+
 function parseSbomPackages(sbomFile) {
   const sbom = JSON.parse(fs.readFileSync(sbomFile, 'utf8'));
   const packages = [];
 
   (sbom.sbom?.packages || []).forEach(pkg => {
     const purlRef = (pkg.externalRefs || []).find(r =>
-      r.referenceType === 'purl' && r.referenceLocator?.startsWith('pkg:npm/')
+      r.referenceType === 'purl' &&
+      SUPPORTED_ECOSYSTEMS.some(e => r.referenceLocator?.startsWith(`pkg:${e}/`))
     );
-    if (!purlRef) return; // skip the root package and non-npm entries
+    if (!purlRef) return; // skip the root package and unsupported ecosystems
 
-    // pkg:npm/%40scope/name@1.2.3 -> @scope/name, 1.2.3
-    const locator = purlRef.referenceLocator.slice('pkg:npm/'.length);
-    const atIndex = locator.lastIndexOf('@');
+    // pkg:npm/%40scope/name@1.2.3 -> npm, @scope/name, 1.2.3
+    const [, ecosystem, rest] = purlRef.referenceLocator.match(/^pkg:([^/]+)\/(.+)$/);
+    const atIndex = rest.lastIndexOf('@');
     if (atIndex <= 0) return;
 
     packages.push({
-      name: decodeURIComponent(locator.slice(0, atIndex)),
-      version: locator.slice(atIndex + 1)
+      name: decodeURIComponent(rest.slice(0, atIndex)),
+      version: rest.slice(atIndex + 1),
+      ecosystem
     });
   });
 
@@ -137,12 +141,13 @@ async function extractDependencies() {
 
   const repoSet = new Set();
 
-  for (const { name, version } of packageList) {
-    const isDirect = directDeps.has(name);
+  for (const { name, version, ecosystem = 'npm' } of packageList) {
+    const isDirect = ecosystem === 'npm' && directDeps.has(name);
 
     const packageData = {
       name,
       version,
+      ecosystem,
       isDirect,
       isDev: packageJson.devDependencies && packageJson.devDependencies[name] !== undefined
     };

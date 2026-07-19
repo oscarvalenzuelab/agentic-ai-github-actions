@@ -26,7 +26,8 @@ function collectPackages() {
   if (sbomFile && fs.existsSync(sbomFile)) {
     const sbom = JSON.parse(fs.readFileSync(sbomFile, 'utf8'));
     return (sbom.sbom?.packages || [])
-      .filter(p => (p.externalRefs || []).some(r => r.referenceLocator?.startsWith('pkg:npm/')))
+      .filter(p => (p.externalRefs || []).some(r =>
+        /^pkg:(npm|pypi)\//.test(r.referenceLocator || '')))
       .map(p => ({
         name: p.name.replace(/^npm:/, ''),
         license: p.licenseDeclared && p.licenseDeclared !== 'NOASSERTION'

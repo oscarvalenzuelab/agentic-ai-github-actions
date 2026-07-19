@@ -62,6 +62,7 @@ jobs:
             node scripts/extract-dependencies.js sbom.json > dependencies.json
           else
             echo "Dependency graph unavailable; falling back to package.json..."
+            rm -f sbom.json  # remove the error body the failed fetch wrote
             node scripts/extract-dependencies.js > dependencies.json
           fi
           echo "Found $(jq '.packages | length' dependencies.json) packages, $(jq '.repositories | length' dependencies.json) direct-dependency repositories to analyze"

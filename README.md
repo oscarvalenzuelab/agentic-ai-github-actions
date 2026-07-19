@@ -95,9 +95,13 @@ AI analysis run (`ai-dependency-analysis` artifact): raw repository data, the SB
 
 Scorecard run (`security-report` artifact): the security report, npm audit JSON, and the Scorecard SARIF file. The SARIF results are also uploaded to the repository's Security tab.
 
+## Demo Application
+
+`demo-app/` contains a small Python agent (Strands Agents + the OpenAI SDK) that exists as an analysis subject: its dependencies appear in the dependency graph and therefore in the SBOM, OSV, and license checks, and its AI SDK usage is what the ai-finder AIBOM step detects. It doubles as a usage example — it reads a generated analysis report and produces a three-bullet executive summary (requires `OPENAI_API_KEY` to actually run).
+
 ## Customization
 
-- **Dependencies**: the packages declared in `package.json` are the analysis subjects. Point the workflows at your own project (or replace the dependency list) to analyze what you actually ship. None of the declared runtime dependencies are imported by the scripts here — the scripts use only Node.js built-ins.
+- **Dependencies**: the packages declared in `package.json` and `demo-app/requirements.txt` are the analysis subjects. Point the workflows at your own project (or replace the dependency list) to analyze what you actually ship. None of the declared `package.json` runtime dependencies are imported by the scripts here — the scripts use only Node.js built-ins.
 - **Prompts**: add a new file to `analysis-prompts/` and a matching option to the `analysis_type` workflow input.
 - **Model**: pass any GitHub Models catalog identifier via the `model` input.
 - **Schedules**: adjust the `cron` expressions in the workflow files.

@@ -16,11 +16,18 @@ function concreteVersion(version) {
   return (version || '').replace(/^[~^>=<\s]+/, '').split(' ')[0];
 }
 
+// OSV ecosystem identifiers per purl type
+const OSV_ECOSYSTEMS = { npm: 'npm', pypi: 'PyPI' };
+
 const queries = deps.packages
-  .map(p => ({ name: p.name, version: concreteVersion(p.version) }))
-  .filter(p => p.name && /^\d/.test(p.version))
   .map(p => ({
-    package: { name: p.name, ecosystem: 'npm' },
+    name: p.name,
+    version: concreteVersion(p.version),
+    ecosystem: OSV_ECOSYSTEMS[p.ecosystem || 'npm']
+  }))
+  .filter(p => p.name && p.ecosystem && /^\d/.test(p.version))
+  .map(p => ({
+    package: { name: p.name, ecosystem: p.ecosystem },
     version: p.version
   }));
 
