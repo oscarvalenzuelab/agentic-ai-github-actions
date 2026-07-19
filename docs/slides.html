@@ -66,6 +66,8 @@
   li::marker { color: var(--accent); }
   strong { color: var(--accent); font-weight: 650; }
   .muted { color: var(--muted); }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--line); }
+  a:hover, a:focus-visible { border-bottom-color: var(--accent); }
   code {
     font-family: var(--mono); font-size: 0.88em;
     background: var(--accent-soft); padding: 0.08em 0.35em; border-radius: 3px;
@@ -146,18 +148,18 @@
 <section class="slide active">
   <p class="eyebrow">OSPO tooling · 15 minutes</p>
   <h1>Supply Chain Analysis with Agentic AI on GitHub Actions</h1>
-  <p class="big muted">Turning raw dependency signals into weekly, defensible judgment — with no keys, no vendors, and no bill.</p>
+  <p class="big muted">A weekly automated check-up for all the open source your product is built on: what is risky, what is legal, what is abandoned — and what to do about it.</p>
   <p class="foot">github.com/oscarvalenzuelab/agentic-ai-github-actions</p>
 </section>
 
 <!-- 2 · The problem -->
 <section class="slide">
   <p class="eyebrow">The problem</p>
-  <h2>You ship 9 dependencies. You inherit 120.</h2>
+  <h2>You chose 9 open source components. You got 120.</h2>
   <ul>
-    <li>Every direct dependency pulls a tree of transitive ones — each a package you now effectively maintain.</li>
-    <li>Four risk surfaces, usually watched by nobody: <strong>known vulnerabilities</strong>, <strong>license obligations</strong>, <strong>maintainer abandonment</strong>, and — new — <strong>embedded AI components</strong>.</li>
-    <li>Real example from this repo: a dependency pinned as "fixed" in March had accumulated <strong>22 new advisories</strong> by July, including a man-in-the-middle vector. Nobody was looking.</li>
+    <li>Every component your team picks brings its own components along. You are responsible for all of them — legally and operationally.</li>
+    <li>Each one can quietly carry a problem: a <strong>security hole</strong>, a <strong>license you cannot comply with</strong>, a <strong>maintainer who walked away</strong>, or — new — <strong>AI components regulators now ask you to declare</strong>.</li>
+    <li>Real example from this project: a component we "fixed" in March had quietly collected <strong>22 new security advisories</strong> by July, one of them serious. Nobody was watching.</li>
   </ul>
   <div class="kv">
     <div><span class="n">120</span>packages in tree</div>
@@ -169,33 +171,33 @@
 <!-- 3 · The gap -->
 <section class="slide">
   <p class="eyebrow">The gap</p>
-  <h2>Native tools emit signals. An OSPO needs judgment.</h2>
+  <h2>GitHub sends alerts. Nobody has time to read alerts.</h2>
   <table>
-    <tr><th>Need</th><th>Dependabot</th><th>Scorecard</th><th>This pipeline</th></tr>
-    <tr><td>Known vulnerabilities</td><td>Yes</td><td>Partial</td><td>Yes — full tree, OSV.dev</td></tr>
-    <tr><td>License policy vs your license</td><td>No</td><td>No</td><td>Yes — OSPAC verdicts</td></tr>
-    <tr><td>Maintainer burnout / bus factor</td><td>No</td><td>No</td><td>Yes — activity + concentration</td></tr>
-    <tr><td>AI bill of materials</td><td>No</td><td>No</td><td>Yes — ai-finder AIBOM</td></tr>
-    <tr><td>A narrative someone can act on</td><td>No</td><td>No</td><td>Yes — one weekly report</td></tr>
+    <tr><th>What you need to know</th><th>Dependabot</th><th>Scorecard</th><th>This pipeline</th></tr>
+    <tr><td>Known security holes</td><td>Yes</td><td>Partial</td><td>Yes — every component checked</td></tr>
+    <tr><td>Licenses that conflict with yours</td><td>No</td><td>No</td><td>Yes — checked against a rulebook</td></tr>
+    <tr><td>Projects quietly being abandoned</td><td>No</td><td>No</td><td>Yes — activity and maintainer health</td></tr>
+    <tr><td>Where AI is in your software</td><td>No</td><td>No</td><td>Yes — an inventory, automatically</td></tr>
+    <tr><td>A summary a person can act on</td><td>No</td><td>No</td><td>Yes — one readable weekly report</td></tr>
   </table>
 </section>
 
 <!-- 4 · The approach -->
 <section class="slide">
   <p class="eyebrow">The approach</p>
-  <h2>Evidence is scripted. Only the narrative is generated.</h2>
+  <h2>Facts from scripts. Words from AI. Decisions from people.</h2>
   <div class="cols">
     <div>
-      <p><strong>1 · Collect</strong><br>Deterministic scripts gather SBOM, advisories, license verdicts, AIBOM, and repository metrics. Reproducible, auditable, no model involved.</p>
+      <p><strong>1 · Collect the facts</strong><br>Plain scripts gather the component list, security advisories, license checks, and the AI inventory. Same inputs, same outputs, every time — auditable.</p>
     </div>
     <div>
-      <p><strong>2 · Assess</strong><br>GitHub Models reads the evidence and writes the assessment: overall risk, critical findings, recommendations. One bounded inference per week.</p>
+      <p><strong>2 · Write the summary</strong><br>An AI reads those facts and writes the weekly assessment: overall risk, what matters most, what to do. It never invents data — it only summarizes what was collected.</p>
     </div>
     <div>
-      <p><strong>3 · Remediate</strong><br>An agentic workflow acts on the findings: bumps vulnerable dependencies and opens a single reviewed pull request. Optional, sandboxed, capped.</p>
+      <p><strong>3 · Propose the fix</strong><br>Where a fix exists, an assistant prepares it as a normal code change for your engineers to review. It proposes; people approve.</p>
     </div>
   </div>
-  <p class="foot">A compliance artifact is only defensible if the data underneath it is deterministic.</p>
+  <p class="foot">A compliance report is only defensible if the facts underneath it are collected the same way every time.</p>
 </section>
 
 <!-- 5 · Tools and data sources -->
@@ -203,26 +205,26 @@
   <p class="eyebrow">Tools &amp; data sources</p>
   <h2>Seven sources, all open, all free</h2>
   <div class="toolgrid">
-    <div class="tool"><div class="name">Dependency graph</div><div class="what">GitHub-native SBOM: full tree, exact resolved versions, npm + PyPI, SPDX format.</div></div>
-    <div class="tool"><div class="name">OSV.dev</div><div class="what">Google's open vulnerability database. Batch-queried per exact package version. No auth.</div></div>
-    <div class="tool hi"><div class="name">OSPAC ★</div><div class="what">Open Source Policy as Code — 700+ SPDX licenses with obligations and pairwise compatibility verdicts.</div></div>
-    <div class="tool hi"><div class="name">ai-finder ★</div><div class="what">SCANOSS scanner for AI artifacts: 150+ AI packages, 12 SDK languages, model files. Emits a CycloneDX AIBOM.</div></div>
-    <div class="tool"><div class="name">OpenSSF Scorecard</div><div class="what">Security-posture scoring of the repository, SARIF into the GitHub Security tab.</div></div>
-    <div class="tool"><div class="name">GitHub REST metrics</div><div class="what">Contributors, commit cadence, issue latency, releases, community profile — per direct dependency.</div></div>
-    <div class="tool"><div class="name">GitHub Models</div><div class="what">In-platform inference with the built-in workflow token. No API key, no external egress.</div></div>
+    <div class="tool"><div class="name"><a href="https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-the-dependency-graph">Dependency graph</a></div><div class="what">GitHub’s own inventory of every component in the product, down to exact versions.</div></div>
+    <div class="tool"><div class="name"><a href="https://osv.dev">OSV.dev</a></div><div class="what">Google’s public database of known security problems — every component is checked against it.</div></div>
+    <div class="tool hi"><div class="name"><a href="https://github.com/SemClone/ospac">OSPAC</a> ★</div><div class="what">An open rulebook for software licenses: what each of 700+ licenses demands, and which combinations conflict.</div></div>
+    <div class="tool hi"><div class="name"><a href="https://pypi.org/project/ai-finder/">ai-finder</a> ★</div><div class="what">Finds AI models and AI-related components hiding in the code, and produces the AI inventory (AIBOM) regulators ask for.</div></div>
+    <div class="tool"><div class="name"><a href="https://github.com/ossf/scorecard">OpenSSF Scorecard</a></div><div class="what">An industry-standard security report card for the project itself.</div></div>
+    <div class="tool"><div class="name">GitHub REST metrics</div><div class="what">Who maintains each component, how active they are, and how quickly they respond.</div></div>
+    <div class="tool"><div class="name"><a href="https://docs.github.com/en/github-models">GitHub Models</a></div><div class="what">The AI that writes the summary — it runs inside GitHub, so no data leaves for an outside AI vendor.</div></div>
   </div>
 </section>
 
 <!-- 6 · OSPAC spotlight -->
 <section class="slide">
   <p class="eyebrow">Spotlight · OSPAC</p>
-  <h2>License policy as data, not opinion</h2>
+  <h2>Is every license actually compatible with yours?</h2>
   <div class="cols">
     <div>
       <ul>
-        <li>A versioned dataset: every SPDX license with <strong>properties, obligations, and limitations</strong> — plus pairwise compatibility matrices (static linking, dynamic linking, distribution).</li>
-        <li>The pipeline evaluates <strong>every license in the tree</strong> against the project's own license and returns verdicts: compatible, incompatible, requires review.</li>
-        <li>Unknown licenses are surfaced honestly instead of guessed.</li>
+        <li>Every open source license is a contract with conditions. OSPAC encodes those conditions — <strong>what each license demands and which licenses conflict</strong> — as open, versioned data.</li>
+        <li>Every week, the license of <strong>every single component</strong> is checked against your project’s license. Verdicts, not vibes: compatible, incompatible, or needs legal review.</li>
+        <li>When a license cannot be identified, it is flagged for a person — never guessed.</li>
       </ul>
     </div>
     <div>
@@ -241,13 +243,13 @@ unknown         3   <span class="risk">review</span></div>
 <!-- 7 · ai-finder spotlight -->
 <section class="slide">
   <p class="eyebrow">Spotlight · ai-finder</p>
-  <h2>The AIBOM: what AI is in your software?</h2>
+  <h2>Could you list every piece of AI in your product today?</h2>
   <div class="cols">
     <div>
       <ul>
-        <li>Scans code and manifests for <strong>AI SDKs, packages, and model files</strong> — OpenAI, Anthropic, LangChain, Strands, HuggingFace, GGUF/ONNX weights, and more.</li>
-        <li>Emits a <strong>CycloneDX 1.6 AI bill of materials</strong> — the inventory format regulators expect for EU AI Act reporting.</li>
-        <li>Licenses enriched from PyPI, npm, and HuggingFace automatically.</li>
+        <li>Regulation (starting with the <strong>EU AI Act</strong>) increasingly expects companies to know and declare where AI sits in their products.</li>
+        <li>ai-finder scans the code and finds it: <strong>AI services, AI libraries, and model files</strong> — including ones engineers added without telling anyone.</li>
+        <li>The result is an <strong>AI bill of materials (AIBOM)</strong> in the standard format auditors ask for, with licenses filled in automatically.</li>
       </ul>
     </div>
     <div>
@@ -268,18 +270,18 @@ strands-agent (code)   —</div>
   <p class="eyebrow">How it runs</p>
   <h2>One weekly workflow, ten steps</h2>
   <ol class="flow">
-    <li>Pull the SBOM from the dependency graph — full tree, exact versions</li>
-    <li>Batch-query OSV.dev for known vulnerabilities</li>
-    <li>Evaluate every license against project policy (OSPAC)</li>
-    <li>Scan for AI components, emit the AIBOM (ai-finder)</li>
-    <li>Collect repository metrics for each direct dependency</li>
-    <li>Compute 0–100 health scores (activity, bus factor, releases)</li>
-    <li>Feed all evidence to GitHub Models with the selected analysis prompt</li>
-    <li>Fall back to rule-based analysis if the model is unavailable</li>
-    <li>Compose one consolidated report; file it as a tracking issue</li>
-    <li>Publish AIBOM, SBOM, license verdicts to stable release URLs</li>
+    <li>List every component and its exact version</li>
+    <li>Check each one against the public database of known security problems</li>
+    <li>Check every license against your project’s license</li>
+    <li>Scan the code for AI components and build the AI inventory</li>
+    <li>Look at who maintains each component and how active they are</li>
+    <li>Score each component’s overall health, 0–100</li>
+    <li>Have the AI read all of it and write the weekly assessment</li>
+    <li>If the AI is unavailable, produce a simpler automatic summary instead</li>
+    <li>File the report where the team already works — as a GitHub issue</li>
+    <li>Publish the compliance files at permanent links for auditors</li>
   </ol>
-  <p class="foot">Every step degrades gracefully — the workflow always produces a report.</p>
+  <p class="foot">If any step fails, the rest still run — there is always a report on Monday.</p>
 </section>
 
 <!-- 9 · Output -->
@@ -304,9 +306,9 @@ Known vulnerabilities
 AI components: 5 detected</div>
     </div>
     <div>
-      <p><strong>Plus permanent compliance URLs</strong> — refreshed every run, no expiry, no auth:</p>
+      <p><strong>Plus permanent links for compliance</strong> — refreshed weekly, never expire, no login needed:</p>
       <p class="foot">…/releases/download/compliance-latest/<br>&nbsp;&nbsp;aibom.json<br>&nbsp;&nbsp;sbom.json<br>&nbsp;&nbsp;license-analysis.json<br>&nbsp;&nbsp;analysis-report.md</p>
-      <p>Hand these to auditors, dashboards, or downstream tooling as-is.</p>
+      <p>Hand these to auditors, customers, or internal dashboards as-is.</p>
     </div>
   </div>
 </section>
@@ -314,13 +316,13 @@ AI components: 5 detected</div>
 <!-- 10 · Remediation agent -->
 <section class="slide">
   <p class="eyebrow">Closing the loop</p>
-  <h2>The agent that fixes what the report finds</h2>
+  <h2>When something is fixable, the fix arrives pre-made</h2>
   <div class="cols">
     <div>
       <ul>
-        <li>A <strong>GitHub Agentic Workflow</strong> triggers after each analysis: reads the evidence — OSV findings and OSPAC license verdicts — bumps vulnerable dependencies, regenerates the lockfile, verifies the audit improves, and flags license findings for OSPO follow-up.</li>
-        <li><strong>GitHub Copilot is the agent's core engine</strong> — native to Actions, running an included model chosen automatically from the plan.</li>
-        <li>All writes pass through <strong>validated safe-outputs</strong>: exactly one pull request and one issue comment. The agent itself is read-only, sandboxed, behind an egress firewall.</li>
+        <li>After each weekly report, an <strong>AI assistant reads the findings</strong>: it updates components with known security fixes and double-checks the result actually improved things.</li>
+        <li><strong>GitHub Copilot is the engine</strong> — it runs inside GitHub, on the models already included in the plan.</li>
+        <li>It can only do two things: <strong>propose one code change and leave one comment</strong>. It cannot merge, cannot touch anything else, and license questions go to legal — it never acts on those.</li>
       </ul>
     </div>
     <div>
@@ -333,11 +335,11 @@ AI components: 5 detected</div>
 3  gh secret set
    COPILOT_GITHUB_TOKEN
 ──────────────────────────────
-Copilot Free plan is enough.</div>
-      <p class="foot">Full steps in the README setup section.</p>
+Works with your Copilot plan.</div>
+      <p class="foot">Full steps in the README. Built on <a href="https://github.github.com/gh-aw/">GitHub Agentic Workflows</a>.</p>
     </div>
   </div>
-  <p class="foot">Evidence pipeline recommends → agent proposes → human disposes.</p>
+  <p class="foot">The report recommends → the assistant proposes → a person approves.</p>
 </section>
 
 <!-- 11 · Cost -->
@@ -351,19 +353,19 @@ Copilot Free plan is enough.</div>
     <tr><td>Vulnerability data</td><td>OSV.dev</td><td>$0</td></tr>
     <tr><td>License policy data</td><td>OSPAC (open dataset)</td><td>$0</td></tr>
     <tr><td>AIBOM scanning</td><td>ai-finder (open source)</td><td>$0</td></tr>
-    <tr><td>Remediation agent</td><td>Copilot, included model</td><td>$0 within allowance</td></tr>
+    <tr><td>Remediation agent</td><td>GitHub Copilot</td><td>Within plan allowance</td></tr>
   </table>
-  <p class="foot">No API keys. No vendor contracts. One repository secret — a Copilot PAT — for the optional remediation agent only.</p>
+  <p class="foot">No API keys. No vendor contracts. One repository secret — a Copilot PAT — for the optional remediation agent. The Copilot free tier fits open source and evaluation use; professional use will likely call for a paid plan.</p>
 </section>
 
 <!-- 12 · Adapting it -->
 <section class="slide">
   <p class="eyebrow">Making it yours</p>
-  <h2>Three files control everything</h2>
+  <h2>Tuning it does not require an engineer</h2>
   <ul>
-    <li><strong>Prompts</strong> — <code>analysis-prompts/*.md</code> are the analysis personas: comprehensive, security-focused, maintainer-burnout, community-health, license-compliance. Add a file, add a workflow option — done. A strict JSON contract is appended automatically so output stays parseable.</li>
-    <li><strong>Model</strong> — a workflow input; any model in the GitHub Models catalog. Default is a small, free one.</li>
-    <li><strong>Subject</strong> — point it at your own repository: the dependency graph, prompts, and reports follow automatically. Schedules are two cron lines.</li>
+    <li><strong>The questions it asks are plain-text files.</strong> Five ready-made focuses: comprehensive, security, maintainer burnout, community health, license compliance. Editing one is like editing a document; adding a new focus is adding a file.</li>
+    <li><strong>The AI model is a dropdown choice</strong> when running manually. The default is small and free.</li>
+    <li><strong>Point it at any project</strong> — the component list, checks, and reports follow automatically. The weekly schedule is one line to change.</li>
   </ul>
 </section>
 
@@ -372,10 +374,10 @@ Copilot Free plan is enough.</div>
   <p class="eyebrow">For the OSPO</p>
   <h2>What you get on Monday morning</h2>
   <ul>
-    <li>A <strong>weekly, versioned risk narrative</strong> across the whole dependency tree — not a wall of alerts.</li>
-    <li><strong>Defensible compliance artifacts</strong> — SBOM, AIBOM, license verdicts — at permanent URLs, generated from deterministic data.</li>
-    <li><strong>Early warnings</strong> the native tools don't send: burnout, abandonment, license drift, AI creep.</li>
-    <li>A remediation PR already waiting when something is fixable.</li>
+    <li>A <strong>weekly, readable risk summary</strong> covering every component — instead of a wall of alerts nobody reads.</li>
+    <li><strong>Audit-ready compliance files</strong> — the component inventory, the AI inventory, the license verdicts — at permanent links, built the same way every week.</li>
+    <li><strong>Early warnings</strong> the standard tools never send: maintainers burning out, projects going quiet, licenses drifting, AI creeping in.</li>
+    <li>And when something is fixable — the fix already proposed, waiting for approval.</li>
   </ul>
   <p class="foot">github.com/oscarvalenzuelab/agentic-ai-github-actions · Apache-2.0</p>
 </section>
