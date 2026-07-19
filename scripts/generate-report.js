@@ -97,7 +97,7 @@ if (licenses && licenses.packagesEvaluated > 0) {
   const flag = (label, entries) => {
     if (entries?.length) {
       entries.forEach(e => {
-        lines.push(`- ${label}: ${e.license} — ${e.packages.join(', ')}`);
+        lines.push(`- ${label}: ${e.license} (${e.packages.join(', ')})`);
       });
     }
   };
