@@ -46,7 +46,7 @@ The rule-based fallback implements the same five modes with heuristics.
 1. Enable GitHub Actions on the repository.
 2. Ensure the dependency graph is enabled (on by default for public repositories; Settings > Security for private ones).
 3. Ensure GitHub Models is available to the repository or organization (Settings > Models). If it is not, the workflow still runs and uses the rule-based fallback.
-4. Optional — the remediation agent. Skip this entirely if you only want the analysis and reports; the first two workflows are fully independent of it. The agent requires a GitHub Copilot plan that supports explicit model selection (paid plans; see the known limitation below), plus one repository secret — a fine-grained PAT with the Copilot Requests permission:
+4. Optional — the remediation agent. Skip this entirely if you only want the analysis and reports; the first two workflows are fully independent of it. The agent requires a paid GitHub Copilot plan (Pro, Pro+, Business, or Enterprise), plus one repository secret — a fine-grained PAT with the Copilot Requests permission:
    1. Open https://github.com/settings/personal-access-tokens/new
    2. Set **Resource owner** to your personal account — the Copilot Requests permission is only available on user-owned tokens, so it will not appear if an organization is selected
    3. Repository access: "Public repositories" is sufficient
