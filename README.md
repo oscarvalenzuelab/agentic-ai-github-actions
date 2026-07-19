@@ -114,7 +114,7 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-r
 
 Design constraints:
 
-- Runs on the Copilot engine pinned to `gpt-5-mini`, an included model on every Copilot plan (including Free), so runs do not consume paid AI credits.
+- Runs on the Copilot engine with automatic model selection (`model: auto`), which works on every Copilot plan including Free and routes to included models, so runs stay within the plan allowance.
 - Authenticates with the built-in workflow token via the `copilot-requests: write` permission — no PAT or repository secret.
 - All writes go through gh-aw safe-outputs (one PR, at most one comment); the agent itself runs sandboxed with read-only permissions, an egress firewall, and hard caps (`max-turns: 15`, `max-ai-credits: 100`).
 - The runnable workflow is the compiled `dependency-remediation.lock.yml`. To change the agent, edit the `.md` file and run `gh aw compile` (requires the [gh-aw extension](https://github.com/github/gh-aw)). `agentics-maintenance.yml` is gh-aw housekeeping that keeps compiled workflows current.

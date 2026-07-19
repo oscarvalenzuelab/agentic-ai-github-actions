@@ -14,7 +14,7 @@ permissions:
 
 engine:
   id: copilot
-  model: gpt-5-mini
+  model: auto
 
 max-turns: 15
 max-ai-credits: 100
