@@ -10,7 +10,7 @@ Three workflows:
 |----------|---------|---------|
 | `scorecard-analysis.yml` | Mondays 02:00 UTC | OpenSSF Scorecard of this repository plus an npm audit of its dependencies |
 | `ai-dependency-analysis.yml` | Wednesdays 04:00 UTC | Full dependency-tree analysis with model-driven risk assessment |
-| `dependency-remediation.md` | After each AI analysis run | Agent that fixes what the analysis found: bumps vulnerable dependencies and opens a pull request |
+| `dependency-remediation.md` | After each AI analysis run | Optional agent that fixes what the analysis found: bumps vulnerable dependencies and opens a pull request. Requires a GitHub Copilot plan (see Setup) |
 
 The first two also run on manual dispatch and on pushes to `main` that change the relevant files; all three support manual dispatch.
 
@@ -46,7 +46,7 @@ The rule-based fallback implements the same five modes with heuristics.
 1. Enable GitHub Actions on the repository.
 2. Ensure the dependency graph is enabled (on by default for public repositories; Settings > Security for private ones).
 3. Ensure GitHub Models is available to the repository or organization (Settings > Models). If it is not, the workflow still runs and uses the rule-based fallback.
-4. For the remediation agent: GitHub Copilot must be enabled for the account (see the known limitation below regarding current behavior in Actions), and the repository needs one secret — a fine-grained PAT with the Copilot Requests permission:
+4. Optional — the remediation agent. Skip this entirely if you only want the analysis and reports; the first two workflows are fully independent of it. The agent requires a GitHub Copilot plan that supports explicit model selection (paid plans; see the known limitation below), plus one repository secret — a fine-grained PAT with the Copilot Requests permission:
    1. Open https://github.com/settings/personal-access-tokens/new
    2. Set **Resource owner** to your personal account — the Copilot Requests permission is only available on user-owned tokens, so it will not appear if an organization is selected
    3. Repository access: "Public repositories" is sufficient
@@ -123,7 +123,7 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-r
 
 ## Automated Remediation
 
-`dependency-remediation.md` is a [GitHub Agentic Workflow](https://github.github.com/gh-aw/) that runs after each AI dependency analysis completes. It downloads the analysis artifacts (OSV vulnerabilities, the OSPAC license evaluation, the consolidated report), and if any direct dependency has known vulnerabilities with a fixed version available, it updates `package.json`, regenerates the lockfile, verifies `npm audit` improves, and opens a single pull request listing each bump and the advisory IDs it resolves. Its summary comment on the tracking issue also flags OSPAC license findings (incompatible, requires-review, or unknown licenses) for OSPO follow-up — it never modifies anything over a license finding. If there is nothing to remediate, it only comments.
+`dependency-remediation.md` is an optional add-on: a [GitHub Agentic Workflow](https://github.github.com/gh-aw/) that runs after each AI dependency analysis completes. The analysis pipeline works fully without it — the agent closes the loop for teams with a suitable GitHub Copilot plan. It downloads the analysis artifacts (OSV vulnerabilities, the OSPAC license evaluation, the consolidated report), and if any direct dependency has known vulnerabilities with a fixed version available, it updates `package.json`, regenerates the lockfile, verifies `npm audit` improves, and opens a single pull request listing each bump and the advisory IDs it resolves. Its summary comment on the tracking issue also flags OSPAC license findings (incompatible, requires-review, or unknown licenses) for OSPO follow-up — it never modifies anything over a license finding. If there is nothing to remediate, it only comments.
 
 Design constraints:
 
