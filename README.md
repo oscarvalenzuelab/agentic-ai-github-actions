@@ -57,7 +57,9 @@ The rule-based fallback implements the same five modes with heuristics.
       gh secret set COPILOT_GITHUB_TOKEN --repo <owner>/<repo>
       ```
 
-   Notes: OAuth tokens (`gho_...`) and classic PATs (`ghp_...`) are rejected — it must be a fine-grained PAT. GitHub Actions also supports a secret-free path via the `copilot-requests: write` workflow permission, but as of July 2026 that token does not carry Copilot Free plan model entitlements, so this project uses the PAT.
+   Notes: OAuth tokens (`gho_...`) and classic PATs (`ghp_...`) are rejected — it must be a fine-grained PAT.
+
+   **Known limitation (July 2026):** gh-aw's inference proxy currently authenticates Copilot requests with the workflow's built-in token even when `COPILOT_GITHUB_TOKEN` is configured, and it steers agent traffic to premium models. In practice the agent therefore requires a Copilot plan whose Actions entitlement includes those models; accounts limited to included models receive `400 model not supported`. The same PAT and CLI work outside Actions, which isolates the issue to the workflow proxy layer. Tracked for an upstream gh-aw report.
 
 The analysis and Scorecard workflows require no repository secrets. The remediation agent requires the single `COPILOT_GITHUB_TOKEN` secret described above.
 
