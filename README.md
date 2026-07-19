@@ -59,7 +59,7 @@ The rule-based fallback implements the same five modes with heuristics.
 
    Notes: OAuth tokens (`gho_...`) and classic PATs (`ghp_...`) are rejected — it must be a fine-grained PAT.
 
-   **Known limitation (July 2026):** gh-aw's inference proxy currently authenticates Copilot requests with the workflow's built-in token even when `COPILOT_GITHUB_TOKEN` is configured, and it steers agent traffic to premium models. In practice the agent therefore requires a Copilot plan whose Actions entitlement includes those models; accounts limited to included models receive `400 model not supported`. The same PAT and CLI work outside Actions, which isolates the issue to the workflow proxy layer. Tracked for an upstream gh-aw report.
+   **Known limitation (July 2026):** Copilot inference currently fails inside this workflow with `400 model not supported` on the completion request, even though the models endpoint in the same run lists the requested model as available and the identical CLI, token, and model work outside Actions. gh-aw's proxy logs show inference authenticated with the workflow token rather than `COPILOT_GITHUB_TOKEN`. The failure is isolated to the gh-aw proxy layer; whether other Copilot plans are affected is unverified. Tracked for an upstream gh-aw report.
 
 The analysis and Scorecard workflows require no repository secrets. The remediation agent requires the single `COPILOT_GITHUB_TOKEN` secret described above.
 
