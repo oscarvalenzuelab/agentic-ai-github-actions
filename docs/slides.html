@@ -1,353 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Supply Chain Analysis for the OSPO</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --ground: #FAF9F5;
-    --ink: #1E252B;
-    --muted: #5C6670;
-    --accent: #1A6B5A;
-    --accent-soft: #E3EEE9;
-    --warn: #A87B18;
-    --bad: #AE4A3C;
-    --line: #D9D6CC;
-    --card: #FFFFFF;
-    --mono: "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-    --serif: Charter, "Bitstream Charter", Cambria, Georgia, serif;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ground: #15191C; --ink: #E6E2D8; --muted: #97A0A8;
-      --accent: #53B597; --accent-soft: #1E2E29; --warn: #D2A64A;
-      --bad: #D07A6C; --line: #333B41; --card: #1C2226;
-    }
-  }
-  :root[data-theme="dark"] {
-    --ground: #15191C; --ink: #E6E2D8; --muted: #97A0A8;
-    --accent: #53B597; --accent-soft: #1E2E29; --warn: #D2A64A;
-    --bad: #D07A6C; --line: #333B41; --card: #1C2226;
-  }
-  :root[data-theme="light"] {
-    --ground: #FAF9F5; --ink: #1E252B; --muted: #5C6670;
-    --accent: #1A6B5A; --accent-soft: #E3EEE9; --warn: #A87B18;
-    --bad: #AE4A3C; --line: #D9D6CC; --card: #FFFFFF;
-  }
+:root {
+  --canvas: #0d1117;
+  --canvas-subtle: #161b22;
+  --canvas-inset: #21262d;
+  --border: #30363d;
+  --blue: #58a6ff;
+  --blue-strong: #1f6feb;
+  --blue-glow: rgba(88, 166, 255, 0.15);
+  --white: #ffffff;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --muted-dim: #6e7681;
+  --green: #3fb950;
+  --red: #f85149;
+  --amber: #d29922;
+  --orange: #f78166;
+}
 
-  html, body { height: 100%; }
-  body {
-    margin: 0; background: var(--ground); color: var(--ink);
-    font-family: var(--sans); overflow: hidden;
-  }
+.reveal-viewport { background: var(--canvas); }
 
-  .deck { position: relative; width: 100vw; height: 100vh; }
-  .slide {
-    position: absolute; inset: 0; display: none;
-    padding: clamp(2rem, 6vh, 4.5rem) clamp(2rem, 8vw, 7rem);
-    flex-direction: column; justify-content: center;
-    box-sizing: border-box; overflow-y: auto;
-  }
-  .slide.active { display: flex; }
+.reveal {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 28px;
+  color: var(--text);
+}
 
-  .eyebrow {
-    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--accent); margin: 0 0 1rem;
-  }
-  h1, h2 {
-    font-family: var(--serif); font-weight: 700; text-wrap: balance;
-    margin: 0 0 1.4rem; line-height: 1.12;
-  }
-  h1 { font-size: clamp(2rem, 5vw, 3.4rem); }
-  h2 { font-size: clamp(1.5rem, 3.6vw, 2.4rem); }
-  p, li { font-size: clamp(0.95rem, 1.6vw, 1.15rem); line-height: 1.55; }
-  p { max-width: 62ch; }
-  ul { margin: 0; padding-left: 1.2rem; max-width: 68ch; }
-  li { margin-bottom: 0.55rem; }
-  li::marker { color: var(--accent); }
-  strong { color: var(--accent); font-weight: 650; }
-  .muted { color: var(--muted); }
-  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--line); }
-  a:hover, a:focus-visible { border-bottom-color: var(--accent); }
-  code {
-    font-family: var(--mono); font-size: 0.88em;
-    background: var(--accent-soft); padding: 0.08em 0.35em; border-radius: 3px;
-  }
+.reveal .slides { text-align: left; }
 
-  table {
-    border-collapse: collapse; width: 100%; max-width: 62rem;
-    font-size: clamp(0.85rem, 1.4vw, 1.02rem);
-    font-variant-numeric: tabular-nums;
-  }
-  th {
-    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em;
-    text-transform: uppercase; text-align: left; color: var(--muted);
-    padding: 0.5rem 1rem 0.5rem 0; border-bottom: 1.5px solid var(--ink);
-  }
-  td { padding: 0.55rem 1rem 0.55rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--white);
+  text-transform: none;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 0.5em;
+}
 
-  .cols { display: flex; gap: clamp(1.5rem, 4vw, 4rem); align-items: flex-start; flex-wrap: wrap; }
-  .cols > div { flex: 1 1 18rem; min-width: 16rem; }
+.reveal h1 { font-size: 2.8em; font-weight: 700; }
+.reveal h2 { font-size: 1.8em; font-weight: 600; }
+.reveal h3 { font-size: 1.3em; font-weight: 500; }
 
-  .toolgrid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-    gap: 1rem; max-width: 66rem;
-  }
-  .tool {
-    background: var(--card); border: 1px solid var(--line);
-    padding: 1rem 1.2rem; border-radius: 4px;
-  }
-  .tool .name { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.4rem; }
-  .tool .what { font-size: 0.95rem; line-height: 1.45; }
-  .tool.hi { border-color: var(--accent); border-width: 1.5px; }
+.reveal code, .reveal .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.85em; }
+.reveal a { color: var(--blue); text-decoration: none; }
+.reveal a:hover { text-decoration: underline; }
 
-  .flow { list-style: none; padding: 0; max-width: 64rem; counter-reset: step;
-          display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 0.5rem 2.5rem; }
-  .flow li { counter-increment: step; display: flex; gap: 0.8rem; align-items: baseline; margin-bottom: 0.35rem; }
-  .flow li::before {
-    content: counter(step, decimal-leading-zero);
-    font-family: var(--mono); font-size: 0.78rem; color: var(--accent); flex: none;
-  }
+.accent { color: var(--blue); }
+.accent-green { color: var(--green); }
+.accent-red { color: var(--red); }
+.accent-amber { color: var(--amber); }
+.dim { color: var(--muted-dim); }
+.bright { color: var(--white); font-weight: 500; }
 
-  .report {
-    background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent);
-    font-family: var(--mono); font-size: clamp(0.7rem, 1.15vw, 0.85rem); line-height: 1.55;
-    padding: 1.1rem 1.4rem; max-width: 58rem; white-space: pre; overflow-x: auto;
-    border-radius: 4px;
-  }
-  .report .ok { color: var(--accent); }
-  .report .risk { color: var(--warn); }
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.55em;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--blue);
+  margin-bottom: 0.2em;
+  display: block;
+}
 
-  .big { font-family: var(--serif); font-size: clamp(1.3rem, 2.6vw, 1.9rem); line-height: 1.35; max-width: 30ch; text-wrap: balance; }
+.subtitle { font-size: 0.7em; color: var(--muted); font-family: 'Space Grotesk', sans-serif; margin-top: -0.3em; }
 
-  .counter {
-    position: fixed; bottom: 1.1rem; right: 1.4rem; z-index: 5;
-    font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
-  }
-  .progress {
-    position: fixed; bottom: 0; left: 0; height: 3px; background: var(--accent);
-    transition: width 0.25s ease; z-index: 5;
-  }
-  @media (prefers-reduced-motion: reduce) { .progress { transition: none; } }
-  .navhint {
-    position: fixed; bottom: 1.1rem; left: 1.4rem; z-index: 5;
-    font-family: var(--mono); font-size: 0.72rem; color: var(--muted);
-  }
-  .zone { position: fixed; top: 0; bottom: 3rem; width: 18vw; z-index: 4; cursor: pointer; }
-  .zone.prev { left: 0; } .zone.next { right: 0; }
-  .zone:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+.accent-line { width: 60px; height: 3px; background: var(--blue); border: none; margin: 0.6em 0 1em 0; border-radius: 2px; }
 
-  .foot { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); margin-top: 2rem; }
-  .kv { display: flex; gap: 2.5rem; flex-wrap: wrap; margin-top: 1.5rem; }
-  .kv div { font-family: var(--mono); font-size: 0.85rem; }
-  .kv .n { font-family: var(--serif); font-size: 2.2rem; font-weight: 700; color: var(--accent); display: block; font-variant-numeric: tabular-nums; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2em; margin-top: 0.8em; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.2em; margin-top: 0.8em; }
+.four-col { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1em; margin-top: 0.8em; }
+
+.card {
+  background: var(--canvas-subtle);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1em 1.1em;
+  transition: border-color 0.3s;
+}
+.card:hover { border-color: var(--blue); }
+.card.hi { border-color: var(--blue-strong); box-shadow: 0 0 0 1px var(--blue-strong); }
+.card h4 { font-size: 0.8em; font-weight: 600; margin: 0 0 0.4em 0; }
+.card h4 a { color: var(--blue); }
+.card p, .card li { font-size: 0.6em; color: var(--muted); line-height: 1.5; margin: 0; }
+
+.reveal table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 0.55em; margin-top: 0.6em; border-radius: 8px; overflow: hidden; }
+.reveal table th { background: var(--canvas-inset); color: var(--white); font-weight: 600; padding: 0.6em 0.8em; text-align: left; border-bottom: 2px solid var(--border); }
+.reveal table td { padding: 0.5em 0.8em; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+.reveal table tr:nth-child(even) td { background: var(--canvas-subtle); }
+.reveal table tr:last-child td { border-bottom: none; }
+.cmp-table td:nth-child(2), .cmp-table td:nth-child(3) { color: var(--muted-dim); text-align: center; }
+.cmp-table td:nth-child(4) { color: var(--green); font-weight: 500; }
+.cmp-table td:first-child { font-weight: 500; color: var(--white); }
+
+.stat { text-align: center; padding: 0.5em; }
+.stat .stat-num { font-size: 2.4em; color: var(--blue); line-height: 1; font-variant-numeric: tabular-nums; }
+.stat .stat-label { font-size: 0.55em; color: var(--muted); margin-top: 0.3em; }
+
+.reveal ul { list-style: none; padding: 0; margin: 0.5em 0; }
+.reveal ul li { padding: 0.25em 0 0.25em 1.3em; position: relative; font-size: 0.72em; line-height: 1.55; }
+.reveal ul li::before { content: ''; position: absolute; left: 0; top: 0.65em; width: 6px; height: 6px; border-radius: 50%; background: var(--blue); }
+
+.quote-block { border-left: 3px solid var(--blue); padding: 0.6em 1.2em; margin: 1em 0; font-size: 0.85em; color: var(--white); line-height: 1.5; background: var(--blue-glow); border-radius: 0 8px 8px 0; }
+
+.arch-flow { background: var(--canvas-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 1em 1.2em; font-family: 'JetBrains Mono', monospace; font-size: 0.5em; line-height: 1.7; color: var(--text); white-space: pre; overflow-x: auto; }
+.arch-flow .hl { color: var(--blue); font-weight: 500; }
+.arch-flow .g { color: var(--green); }
+.arch-flow .a { color: var(--amber); }
+.arch-flow .d { color: var(--muted-dim); }
+
+.stage { background: var(--canvas-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 0.6em 0.7em; }
+.stage .stage-n { font-family: 'JetBrains Mono', monospace; font-size: 0.5em; color: var(--blue); letter-spacing: 0.1em; }
+.stage .stage-t { font-size: 0.58em; color: var(--white); font-weight: 600; margin-top: 0.15em; }
+.stage .stage-d { font-size: 0.48em; color: var(--muted); margin-top: 0.2em; line-height: 1.4; }
+
+.chip { display: inline-block; background: var(--blue-glow); border: 1px solid var(--border); border-radius: 6px; padding: 0.25em 0.6em; font-family: 'JetBrains Mono', monospace; font-size: 0.5em; color: var(--text); margin: 0.15em; }
+
+.footnote { font-family: 'JetBrains Mono', monospace; font-size: 0.45em; color: var(--muted-dim); margin-top: 1.2em; }
+.reveal p { margin: 0.4em 0; line-height: 1.55; }
+.reveal section { padding: 0.5em 1.5em; }
+.small { font-size: 0.65em; }
+.xsmall { font-size: 0.55em; }
 </style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
 
-<div class="deck" id="deck">
-
-<!-- 1 · Title -->
-<section class="slide active">
-  <p class="eyebrow">OSPO tooling · 15 minutes</p>
-  <h1>Supply Chain Analysis with Agentic AI on GitHub Actions</h1>
-  <p class="big muted">A weekly automated check-up for all the open source your product is built on: what is risky, what is legal, what is abandoned — and what to do about it.</p>
-  <p class="foot">github.com/oscarvalenzuelab/agentic-ai-github-actions</p>
-</section>
-
-<!-- 2 · The problem -->
-<section class="slide">
-  <p class="eyebrow">The problem</p>
-  <h2>You chose 9 open source components. You got 120.</h2>
-  <ul>
-    <li>Every component your team picks brings its own components along. You are responsible for all of them — legally and operationally.</li>
-    <li>Each one can quietly carry a problem: a <strong>security hole</strong>, a <strong>license you cannot comply with</strong>, a <strong>maintainer who walked away</strong>, or — new — <strong>AI components regulators now ask you to declare</strong>.</li>
-    <li>Real example from this project: a component we "fixed" in March had quietly collected <strong>22 new security advisories</strong> by July, one of them serious. Nobody was watching.</li>
-  </ul>
-  <div class="kv">
-    <div><span class="n">120</span>packages in tree</div>
-    <div><span class="n">9</span>reviewed by humans</div>
-    <div><span class="n">22</span>advisories on one "fixed" pin</div>
+<!-- 1 · TITLE -->
+<section data-background="linear-gradient(160deg, #0d1117 0%, #161b22 55%, #1c2534 100%)">
+  <div style="text-align:center; padding-top:0.8em;">
+    <span class="section-label" style="font-size:0.5em; letter-spacing:0.2em;">OSPO Tooling &middot; 15 minutes</span>
+    <h1 style="font-size:2.1em; margin:0.3em 0;">Supply Chain Analysis with <span class="accent">Agentic AI</span> on GitHub Actions</h1>
+    <hr class="accent-line" style="margin:0.6em auto; width:80px;">
+    <p class="subtitle" style="font-size:0.75em;">A weekly automated check-up for all the open source your product is built on: what is risky, what is legal, what is abandoned, and what to do about it.</p>
+    <p class="footnote">github.com/oscarvalenzuelab/agentic-ai-github-actions</p>
   </div>
 </section>
 
-<!-- 3 · The gap -->
-<section class="slide">
-  <p class="eyebrow">The gap</p>
-  <h2>GitHub sends alerts. Nobody has time to read alerts.</h2>
-  <table>
+<!-- 2 · PROBLEM -->
+<section>
+  <span class="section-label">The problem</span>
+  <h2>You chose 9 open source components. <span class="accent">You got 120.</span></h2>
+  <hr class="accent-line">
+  <ul>
+    <li>Every component your team picks brings its own components along. You are responsible for all of them, legally and operationally.</li>
+    <li>Each one can quietly carry a problem: a <span class="bright">security hole</span>, a <span class="bright">license you cannot comply with</span>, a <span class="bright">maintainer who walked away</span>, or the new one: <span class="bright">AI components regulators ask you to declare</span>.</li>
+    <li>Real example from this project: a component we "fixed" in March had quietly collected <span class="accent-red">22 new security advisories</span> by July, one of them serious. Nobody was watching.</li>
+  </ul>
+  <div class="three-col">
+    <div class="stat"><div class="stat-num">120</div><div class="stat-label">packages in the tree</div></div>
+    <div class="stat"><div class="stat-num">9</div><div class="stat-label">reviewed by humans</div></div>
+    <div class="stat"><div class="stat-num accent-red" style="color:var(--red)">22</div><div class="stat-label">advisories on one "fixed" pin</div></div>
+  </div>
+</section>
+
+<!-- 3 · GAP -->
+<section>
+  <span class="section-label">The gap</span>
+  <h2>GitHub sends alerts. <span class="accent">Nobody has time to read alerts.</span></h2>
+  <hr class="accent-line">
+  <table class="cmp-table">
     <tr><th>What you need to know</th><th>Dependabot</th><th>Scorecard</th><th>This pipeline</th></tr>
-    <tr><td>Known security holes</td><td>Yes</td><td>Partial</td><td>Yes — every component checked</td></tr>
-    <tr><td>Licenses that conflict with yours</td><td>No</td><td>No</td><td>Yes — checked against a rulebook</td></tr>
-    <tr><td>Projects quietly being abandoned</td><td>No</td><td>No</td><td>Yes — activity and maintainer health</td></tr>
-    <tr><td>Where AI is in your software</td><td>No</td><td>No</td><td>Yes — an inventory, automatically</td></tr>
-    <tr><td>A summary a person can act on</td><td>No</td><td>No</td><td>Yes — one readable weekly report</td></tr>
+    <tr><td>Known security holes</td><td>Yes</td><td>Partial</td><td>Yes: every component checked</td></tr>
+    <tr><td>Licenses that conflict with yours</td><td>No</td><td>No</td><td>Yes: checked against a rulebook</td></tr>
+    <tr><td>Projects quietly being abandoned</td><td>No</td><td>No</td><td>Yes: activity and maintainer health</td></tr>
+    <tr><td>Where AI is in your software</td><td>No</td><td>No</td><td>Yes: an inventory, automatically</td></tr>
+    <tr><td>A summary a person can act on</td><td>No</td><td>No</td><td>Yes: one readable weekly report</td></tr>
   </table>
 </section>
 
-<!-- 4 · The approach -->
-<section class="slide">
-  <p class="eyebrow">The approach</p>
-  <h2>Facts from scripts. Words from AI. Decisions from people.</h2>
-  <div class="cols">
-    <div>
-      <p><strong>1 · Collect the facts</strong><br>Plain scripts gather the component list, security advisories, license checks, and the AI inventory. Same inputs, same outputs, every time — auditable.</p>
-    </div>
-    <div>
-      <p><strong>2 · Write the summary</strong><br>An AI reads those facts and writes the weekly assessment: overall risk, what matters most, what to do. It never invents data — it only summarizes what was collected.</p>
-    </div>
-    <div>
-      <p><strong>3 · Propose the fix</strong><br>Where a fix exists, an assistant prepares it as a normal code change for your engineers to review. It proposes; people approve.</p>
-    </div>
+<!-- 4 · APPROACH -->
+<section>
+  <span class="section-label">The approach</span>
+  <h2>Facts from scripts. Words from AI. <span class="accent">Decisions from people.</span></h2>
+  <hr class="accent-line">
+  <div class="three-col">
+    <div class="card"><h4>1 &middot; Collect the facts</h4><p>Plain scripts gather the component list, security advisories, license checks, and the AI inventory. Same inputs, same outputs, every time. Auditable.</p></div>
+    <div class="card"><h4>2 &middot; Write the summary</h4><p>An AI reads those facts and writes the weekly assessment: overall risk, what matters most, what to do. It never invents data; it only summarizes what was collected.</p></div>
+    <div class="card"><h4>3 &middot; Propose the fix</h4><p>Where a fix exists, an assistant prepares it as a normal code change for your engineers to review. It proposes; people approve.</p></div>
   </div>
-  <p class="foot">A compliance report is only defensible if the facts underneath it are collected the same way every time.</p>
+  <div class="quote-block">A compliance report is only defensible if the facts underneath it are collected the same way every time.</div>
 </section>
 
-<!-- 5 · Tools and data sources -->
-<section class="slide">
-  <p class="eyebrow">Tools &amp; data sources</p>
-  <h2>Seven sources, all open, all free</h2>
-  <div class="toolgrid">
-    <div class="tool"><div class="name"><a href="https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-the-dependency-graph">Dependency graph</a></div><div class="what">GitHub’s own inventory of every component in the product, down to exact versions.</div></div>
-    <div class="tool"><div class="name"><a href="https://osv.dev">OSV.dev</a></div><div class="what">Google’s public database of known security problems — every component is checked against it.</div></div>
-    <div class="tool hi"><div class="name"><a href="https://github.com/SemClone/ospac">OSPAC</a> ★</div><div class="what">An open rulebook for software licenses: what each of 700+ licenses demands, and which combinations conflict.</div></div>
-    <div class="tool hi"><div class="name"><a href="https://pypi.org/project/ai-finder/">ai-finder</a> ★</div><div class="what">Finds AI models and AI-related components hiding in the code, and produces the AI inventory (AIBOM) regulators ask for.</div></div>
-    <div class="tool"><div class="name"><a href="https://github.com/ossf/scorecard">OpenSSF Scorecard</a></div><div class="what">An industry-standard security report card for the project itself.</div></div>
-    <div class="tool"><div class="name">GitHub REST metrics</div><div class="what">Who maintains each component, how active they are, and how quickly they respond.</div></div>
-    <div class="tool"><div class="name"><a href="https://docs.github.com/en/github-models">GitHub Models</a></div><div class="what">The AI that writes the summary — it runs inside GitHub, so no data leaves for an outside AI vendor.</div></div>
+<!-- 5 · TOOLS -->
+<section>
+  <span class="section-label">Tools &amp; data sources</span>
+  <h2>Seven sources, <span class="accent">all open, all free</span></h2>
+  <hr class="accent-line">
+  <div class="four-col">
+    <div class="card"><h4><a href="https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-the-dependency-graph">Dependency graph</a></h4><p>GitHub's own inventory of every component in the product, down to exact versions.</p></div>
+    <div class="card"><h4><a href="https://osv.dev">OSV.dev</a></h4><p>Google's public database of known security problems. Every component is checked against it.</p></div>
+    <div class="card hi"><h4><a href="https://github.com/SemClone/ospac">OSPAC</a> &#9733;</h4><p>An open rulebook for software licenses: what each of 700+ licenses demands, and which combinations conflict.</p></div>
+    <div class="card hi"><h4><a href="https://pypi.org/project/ai-finder/">ai-finder</a> &#9733;</h4><p>Finds AI models and AI-related components hiding in the code, and produces the AI inventory (AIBOM) regulators ask for.</p></div>
+    <div class="card"><h4><a href="https://github.com/ossf/scorecard">OpenSSF Scorecard</a></h4><p>An industry-standard security report card for the project itself.</p></div>
+    <div class="card"><h4>GitHub REST metrics</h4><p>Who maintains each component, how active they are, and how quickly they respond.</p></div>
+    <div class="card"><h4><a href="https://docs.github.com/en/github-models">GitHub Models</a></h4><p>The AI that writes the summary. It runs inside GitHub, so no data leaves for an outside AI vendor.</p></div>
+    <div class="card"><h4><a href="https://github.github.com/gh-aw/">Agentic Workflows</a></h4><p>The framework behind the optional remediation agent, powered by GitHub Copilot.</p></div>
   </div>
 </section>
 
-<!-- 6 · OSPAC spotlight -->
-<section class="slide">
-  <p class="eyebrow">Spotlight · OSPAC</p>
-  <h2>Is every license actually compatible with yours?</h2>
-  <div class="cols">
+<!-- 6 · OSPAC -->
+<section>
+  <span class="section-label">Spotlight &middot; OSPAC</span>
+  <h2>Is every license actually <span class="accent">compatible with yours?</span></h2>
+  <hr class="accent-line">
+  <div class="two-col">
     <div>
       <ul>
-        <li>Every open source license is a contract with conditions. OSPAC encodes those conditions — <strong>what each license demands and which licenses conflict</strong> — as open, versioned data.</li>
-        <li>Every week, the license of <strong>every single component</strong> is checked against your project’s license. Verdicts, not vibes: compatible, incompatible, or needs legal review.</li>
-        <li>When a license cannot be identified, it is flagged for a person — never guessed.</li>
+        <li>Every open source license is a contract with conditions. OSPAC encodes those conditions (what each license demands and which licenses conflict) as open, versioned data.</li>
+        <li>Every week, the license of <span class="bright">every single component</span> is checked against your project's license. Verdicts, not vibes: compatible, incompatible, or needs legal review.</li>
+        <li>When a license cannot be identified, it is flagged for a person, never guessed.</li>
       </ul>
     </div>
     <div>
-      <div class="report">120 packages vs Apache-2.0
-──────────────────────────────
-MIT           113   <span class="ok">compatible</span>
-ISC             2   <span class="ok">compatible</span>
-BSD-2-Clause    1   <span class="ok">compatible</span>
-BSD-3-Clause    1   <span class="ok">compatible</span>
-unknown         3   <span class="risk">review</span></div>
-      <p class="foot">Real output — weekly run, this repository.</p>
+      <div class="arch-flow">120 packages vs Apache-2.0
+<span class="d">------------------------------</span>
+MIT           113   <span class="g">compatible</span>
+ISC             2   <span class="g">compatible</span>
+BSD-2-Clause    1   <span class="g">compatible</span>
+BSD-3-Clause    1   <span class="g">compatible</span>
+unknown         3   <span class="a">review</span></div>
+      <p class="footnote">Real output from a weekly run of this repository.</p>
     </div>
   </div>
 </section>
 
-<!-- 7 · ai-finder spotlight -->
-<section class="slide">
-  <p class="eyebrow">Spotlight · ai-finder</p>
-  <h2>Could you list every piece of AI in your product today?</h2>
-  <div class="cols">
+<!-- 7 · AI-FINDER -->
+<section>
+  <span class="section-label">Spotlight &middot; ai-finder</span>
+  <h2>Could you list every piece of <span class="accent">AI in your product</span> today?</h2>
+  <hr class="accent-line">
+  <div class="two-col">
     <div>
       <ul>
-        <li>Regulation (starting with the <strong>EU AI Act</strong>) increasingly expects companies to know and declare where AI sits in their products.</li>
-        <li>ai-finder scans the code and finds it: <strong>AI services, AI libraries, and model files</strong> — including ones engineers added without telling anyone.</li>
-        <li>The result is an <strong>AI bill of materials (AIBOM)</strong> in the standard format auditors ask for, with licenses filled in automatically.</li>
+        <li>Regulation (starting with the <span class="bright">EU AI Act</span>) increasingly expects companies to know and declare where AI sits in their products.</li>
+        <li>ai-finder scans the code and finds it: <span class="bright">AI services, AI libraries, and model files</span>, including ones engineers added without telling anyone.</li>
+        <li>The result is an <span class="bright">AI bill of materials (AIBOM)</span> in the standard format auditors ask for, with licenses filled in automatically.</li>
       </ul>
     </div>
     <div>
-      <div class="report">aibom.json · CycloneDX 1.6
-──────────────────────────────
-openai@1.40            Apache-2.0
-strands-agents@1.0     Apache-2.0
-strands-agents-tools   Apache-2.0
+      <div class="arch-flow">aibom.json <span class="d">&middot;</span> CycloneDX 1.6
+<span class="d">------------------------------</span>
+<span class="hl">openai@1.40</span>            Apache-2.0
+<span class="hl">strands-agents@1.0</span>     Apache-2.0
+<span class="hl">strands-agents-tools</span>   Apache-2.0
 strands (SDK usage)    MIT
-strands-agent (code)   —</div>
-      <p class="foot">Detected from the repo's demo agent app — 5 components, licensed and versioned.</p>
+strands-agent (code)   n/a</div>
+      <p class="footnote">Detected from the repo's demo agent app: 5 components, licensed and versioned.</p>
     </div>
   </div>
 </section>
 
-<!-- 8 · Pipeline -->
-<section class="slide">
-  <p class="eyebrow">How it runs</p>
-  <h2>One weekly workflow, ten steps</h2>
-  <ol class="flow">
-    <li>List every component and its exact version</li>
-    <li>Check each one against the public database of known security problems</li>
-    <li>Check every license against your project’s license</li>
-    <li>Scan the code for AI components and build the AI inventory</li>
-    <li>Look at who maintains each component and how active they are</li>
-    <li>Score each component’s overall health, 0–100</li>
-    <li>Have the AI read all of it and write the weekly assessment</li>
-    <li>If the AI is unavailable, produce a simpler automatic summary instead</li>
-    <li>File the report where the team already works — as a GitHub issue</li>
-    <li>Publish the compliance files at permanent links for auditors</li>
-  </ol>
-  <p class="foot">If any step fails, the rest still run — there is always a report on Monday.</p>
+<!-- 8 · PIPELINE -->
+<section>
+  <span class="section-label">How it runs</span>
+  <h2>One weekly workflow, <span class="accent">ten steps</span></h2>
+  <hr class="accent-line">
+  <div class="four-col" style="grid-template-columns: repeat(5, 1fr); gap: 0.7em;">
+    <div class="stage"><div class="stage-n">01</div><div class="stage-t">Inventory</div><div class="stage-d">List every component and its exact version</div></div>
+    <div class="stage"><div class="stage-n">02</div><div class="stage-t">Vulnerabilities</div><div class="stage-d">Check each against the public OSV database</div></div>
+    <div class="stage"><div class="stage-n">03</div><div class="stage-t">Licenses</div><div class="stage-d">Check every license against your project's</div></div>
+    <div class="stage"><div class="stage-n">04</div><div class="stage-t">AI inventory</div><div class="stage-d">Scan the code and build the AIBOM</div></div>
+    <div class="stage"><div class="stage-n">05</div><div class="stage-t">Maintainers</div><div class="stage-d">Who maintains each component, how active</div></div>
+    <div class="stage"><div class="stage-n">06</div><div class="stage-t">Health scores</div><div class="stage-d">Score each component 0-100</div></div>
+    <div class="stage"><div class="stage-n">07</div><div class="stage-t">AI assessment</div><div class="stage-d">The AI reads it all and writes the summary</div></div>
+    <div class="stage"><div class="stage-n">08</div><div class="stage-t">Fallback</div><div class="stage-d">If the AI is unavailable, a simpler summary</div></div>
+    <div class="stage"><div class="stage-n">09</div><div class="stage-t">Report</div><div class="stage-d">Filed as a GitHub issue, where the team works</div></div>
+    <div class="stage"><div class="stage-n">10</div><div class="stage-t">Publish</div><div class="stage-d">Compliance files at permanent links</div></div>
+  </div>
+  <p class="footnote">If any step fails, the rest still run. There is always a report on Monday.</p>
 </section>
 
-<!-- 9 · Output -->
-<section class="slide">
-  <p class="eyebrow">The output</p>
-  <h2>One issue your team actually reads</h2>
-  <div class="cols">
+<!-- 9 · OUTPUT -->
+<section>
+  <span class="section-label">The output</span>
+  <h2>One issue your team <span class="accent">actually reads</span></h2>
+  <hr class="accent-line">
+  <div class="two-col">
     <div>
-      <div class="report"># Dependency Analysis — 2026-07-19
+      <div class="arch-flow"># Dependency Analysis - 2026-07-19
 
-<span class="risk">Overall risk: Medium</span>
+<span class="a">Overall risk: Medium</span>
 
 Critical findings
-· chalk: no recent activity,
+<span class="d">&middot;</span> chalk: no recent activity,
   possible abandonment
-· winston: contribution
+<span class="d">&middot;</span> winston: contribution
   concentration + stale releases
 
 Known vulnerabilities
-<span class="ok">None. 117 versions checked.</span>
+<span class="g">None. 117 versions checked.</span>
 
 AI components: 5 detected</div>
     </div>
     <div>
-      <p><strong>Plus permanent links for compliance</strong> — refreshed weekly, never expire, no login needed:</p>
-      <p class="foot">…/releases/download/compliance-latest/<br>&nbsp;&nbsp;aibom.json<br>&nbsp;&nbsp;sbom.json<br>&nbsp;&nbsp;license-analysis.json<br>&nbsp;&nbsp;analysis-report.md</p>
-      <p>Hand these to auditors, customers, or internal dashboards as-is.</p>
+      <p class="small"><span class="bright">Plus permanent links for compliance:</span> refreshed weekly, never expire, no login needed.</p>
+      <div style="margin-top:0.5em">
+        <span class="chip">aibom.json</span>
+        <span class="chip">sbom.json</span>
+        <span class="chip">license-analysis.json</span>
+        <span class="chip">analysis-report.md</span>
+      </div>
+      <p class="small" style="margin-top:0.8em">Hand these to auditors, customers, or internal dashboards as-is.</p>
+      <p class="footnote">.../releases/download/compliance-latest/</p>
     </div>
   </div>
 </section>
 
-<!-- 10 · Remediation agent -->
-<section class="slide">
-  <p class="eyebrow">Closing the loop · optional add-on</p>
-  <h2>When something is fixable, the fix arrives pre-made</h2>
-  <div class="cols">
+<!-- 10 · REMEDIATION AGENT -->
+<section>
+  <span class="section-label">Closing the loop &middot; optional add-on</span>
+  <h2>When something is fixable, <span class="accent">the fix arrives pre-made</span></h2>
+  <hr class="accent-line">
+  <div class="two-col">
     <div>
       <ul>
-        <li>After each weekly report, an <strong>AI assistant reads the findings</strong>: it updates components with known security fixes and double-checks the result actually improved things.</li>
-        <li><strong>GitHub Copilot is the engine</strong> — it runs inside GitHub, on the models already included in the plan.</li>
-        <li>It can only do two things: <strong>propose one code change and leave one comment</strong>. It cannot merge, cannot touch anything else, and license questions go to legal — it never acts on those.</li>
+        <li>After each weekly report, an <span class="bright">AI assistant reads the findings</span>: it updates components with known security fixes and double-checks the result actually improved things.</li>
+        <li><span class="bright">GitHub Copilot is the engine.</span> It runs inside GitHub, on models from your Copilot plan.</li>
+        <li>It can only do two things: <span class="bright">propose one code change and leave one comment</span>. It cannot merge, cannot touch anything else, and license questions go to legal; it never acts on those.</li>
       </ul>
     </div>
     <div>
-      <div class="report">One-time setup (optional)
-──────────────────────────────
-1  Fine-grained PAT — resource
-   owner: your personal account
-2  Add permissions
-   → Copilot Requests
-3  gh secret set
+      <div class="arch-flow">One-time setup (optional)
+<span class="d">------------------------------</span>
+<span class="hl">1</span>  Fine-grained PAT (resource
+   owner: your personal account)
+<span class="hl">2</span>  Add permissions
+   <span class="d">&rarr;</span> Copilot Requests
+<span class="hl">3</span>  gh secret set
    COPILOT_GITHUB_TOKEN
-──────────────────────────────
-Optional add-on. Requires a
-GitHub Copilot plan that supports
-model selection (paid plans).</div>
-      <p class="foot">Full steps in the README. Built on <a href="https://github.github.com/gh-aw/">GitHub Agentic Workflows</a>.</p>
+<span class="d">------------------------------</span>
+Requires a paid Copilot plan
+(Pro, Pro+, Business, Enterprise).</div>
+      <p class="footnote">Full steps in the README. Built on <a href="https://github.github.com/gh-aw/">GitHub Agentic Workflows</a>.</p>
     </div>
   </div>
-  <p class="foot">The report recommends → the assistant proposes → a person approves.</p>
+  <p class="footnote">The report recommends &rarr; the assistant proposes &rarr; a person approves.</p>
 </section>
 
-<!-- 11 · Cost -->
-<section class="slide">
-  <p class="eyebrow">What it costs</p>
-  <h2>The entire stack runs on zero for Open Source projects</h2>
+<!-- 11 · COST -->
+<section>
+  <span class="section-label">What it costs</span>
+  <h2>The analysis stack runs on <span class="accent-green" style="color:var(--green)">zero</span> for open source projects</h2>
+  <hr class="accent-line">
   <table>
     <tr><th>Component</th><th>Provider</th><th>Cost</th></tr>
     <tr><td>Compute (weekly runs)</td><td>GitHub Actions, public repo</td><td>$0</td></tr>
@@ -357,63 +361,56 @@ model selection (paid plans).</div>
     <tr><td>AIBOM scanning</td><td>ai-finder (open source)</td><td>$0</td></tr>
     <tr><td>Remediation agent (optional)</td><td>GitHub Copilot, paid plan</td><td>Within plan allowance</td></tr>
   </table>
-  <p class="foot">No API keys. No vendor contracts. One repository secret — a Copilot PAT — for the optional remediation agent. The Copilot free tier fits open source and evaluation use; professional use will likely call for a paid plan.</p>
+  <p class="footnote">No API keys. No vendor contracts. One repository secret (a Copilot PAT) for the optional agent. The Copilot free tier fits open source and evaluation use; professional use will likely call for a paid plan.</p>
 </section>
 
-<!-- 12 · Adapting it -->
-<section class="slide">
-  <p class="eyebrow">Making it yours</p>
-  <h2>Tuning it does not require an engineer</h2>
-  <ul>
-    <li><strong>The questions it asks are plain-text files.</strong> Five ready-made focuses: comprehensive, security, maintainer burnout, community health, license compliance. Editing one is like editing a document; adding a new focus is adding a file.</li>
-    <li><strong>The AI model is a dropdown choice</strong> when running manually. The default is small and free.</li>
-    <li><strong>Point it at any project</strong> — the component list, checks, and reports follow automatically. The weekly schedule is one line to change.</li>
-  </ul>
+<!-- 12 · ADAPTING -->
+<section>
+  <span class="section-label">Making it yours</span>
+  <h2>Tuning it does not <span class="accent">require an engineer</span></h2>
+  <hr class="accent-line">
+  <div class="three-col">
+    <div class="card"><h4>The questions are plain text</h4><p>Five ready-made focuses: comprehensive, security, maintainer burnout, community health, license compliance. Editing one is like editing a document; adding a new focus is adding a file.</p></div>
+    <div class="card"><h4>The AI model is a dropdown</h4><p>Choose any model from the GitHub Models catalog when running manually. The default is small and free.</p></div>
+    <div class="card"><h4>Point it at any project</h4><p>The component list, checks, and reports follow automatically. The weekly schedule is one line to change.</p></div>
+  </div>
 </section>
 
-<!-- 13 · Takeaways -->
-<section class="slide">
-  <p class="eyebrow">For the OSPO</p>
-  <h2>What you get on Monday morning</h2>
+<!-- 13 · TAKEAWAYS -->
+<section>
+  <span class="section-label">For the OSPO</span>
+  <h2>What you get <span class="accent">on Monday morning</span></h2>
+  <hr class="accent-line">
   <ul>
-    <li>A <strong>weekly, readable risk summary</strong> covering every component — instead of a wall of alerts nobody reads.</li>
-    <li><strong>Audit-ready compliance files</strong> — the component inventory, the AI inventory, the license verdicts — at permanent links, built the same way every week.</li>
-    <li><strong>Early warnings</strong> the standard tools never send: maintainers burning out, projects going quiet, licenses drifting, AI creeping in.</li>
-    <li>And when something is fixable — the fix already proposed, waiting for approval.</li>
+    <li>A <span class="bright">weekly, readable risk summary</span> covering every component, instead of a wall of alerts nobody reads.</li>
+    <li><span class="bright">Audit-ready compliance files</span> (the component inventory, the AI inventory, the license verdicts) at permanent links, built the same way every week.</li>
+    <li><span class="bright">Early warnings</span> the standard tools never send: maintainers burning out, projects going quiet, licenses drifting, AI creeping in.</li>
+    <li>And when something is fixable, the fix is already proposed and waiting for approval.</li>
   </ul>
-  <p class="foot">github.com/oscarvalenzuelab/agentic-ai-github-actions · Apache-2.0</p>
+  <p class="small dim" style="margin-top:1em">This project is a functional demo that can be extended. A professional-grade solution requires enterprise data sources and fine-tuned AI agents.</p>
+  <p class="footnote">github.com/oscarvalenzuelab/agentic-ai-github-actions &middot; Apache-2.0</p>
 </section>
 
 </div>
+</div>
 
-<div class="zone prev" tabindex="0" role="button" aria-label="Previous slide"></div>
-<div class="zone next" tabindex="0" role="button" aria-label="Next slide"></div>
-<div class="navhint">← → to navigate</div>
-<div class="counter" id="counter"></div>
-<div class="progress" id="progress"></div>
-
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
 <script>
-  const slides = Array.from(document.querySelectorAll('.slide'));
-  let i = Math.min(Math.max((parseInt(location.hash.slice(1), 10) || 1) - 1, 0), slides.length - 1);
-
-  function show(n) {
-    i = Math.min(Math.max(n, 0), slides.length - 1);
-    slides.forEach((s, k) => s.classList.toggle('active', k === i));
-    document.getElementById('counter').textContent = String(i + 1).padStart(2, '0') + ' / ' + String(slides.length).padStart(2, '0');
-    document.getElementById('progress').style.width = ((i + 1) / slides.length * 100) + '%';
-    history.replaceState(null, '', '#' + (i + 1));
-  }
-
-  document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); show(i + 1); }
-    if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
-    if (e.key === 'Home') show(0);
-    if (e.key === 'End') show(slides.length - 1);
-  });
-  document.querySelector('.zone.next').addEventListener('click', () => show(i + 1));
-  document.querySelector('.zone.prev').addEventListener('click', () => show(i - 1));
-  document.querySelectorAll('.zone').forEach(z => z.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ') z.click();
-  }));
-  show(i);
+Reveal.initialize({
+  hash: true,
+  slideNumber: 'c/t',
+  width: 1280,
+  height: 720,
+  margin: 0.06,
+  transition: 'fade',
+  transitionSpeed: 'fast',
+  backgroundTransition: 'fade',
+  center: false,
+  controls: true,
+  controlsLayout: 'edges',
+  progress: true,
+  pdfSeparateFragments: false
+});
 </script>
+</body>
+</html>
