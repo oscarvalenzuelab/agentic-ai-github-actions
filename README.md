@@ -59,7 +59,7 @@ The rule-based fallback implements the same five modes with heuristics.
 
    Notes: OAuth tokens (`gho_...`) and classic PATs (`ghp_...`) are rejected — it must be a fine-grained PAT.
 
-   **Known limitation (July 2026):** Copilot inference currently fails inside this workflow with `400 model not supported` on the completion request, even though the models endpoint in the same run lists the requested model as available and the identical CLI, token, and model work outside Actions. gh-aw's proxy logs show inference authenticated with the workflow token rather than `COPILOT_GITHUB_TOKEN`. The failure is isolated to the gh-aw proxy layer; whether other Copilot plans are affected is unverified. Tracked for an upstream gh-aw report.
+   **Known limitation (July 2026):** the agent currently fails on Copilot Free with `400 model not supported`. Copilot Free permits automatic model selection only, while gh-aw's architecture always sends an explicitly pinned model (and its proxy does not pass through the CLI's auto-selection). The models endpoint lists `gpt-5-mini` as available in the same run — the catalog is not entitlement-filtered, but pinned completion requests are. The identical CLI and PAT work outside Actions where auto-selection is allowed. Paid plans that permit explicit model selection are reported to work with a pinned model ([gh-aw#26223](https://github.com/github/gh-aw/issues/26223)); unverified here. Fix requires upstream gh-aw support for auto-model pass-through.
 
 The analysis and Scorecard workflows require no repository secrets. The remediation agent requires the single `COPILOT_GITHUB_TOKEN` secret described above.
 
