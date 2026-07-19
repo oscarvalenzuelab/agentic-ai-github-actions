@@ -35,7 +35,7 @@ const aibom = readJson(process.argv[7] || 'aibom.json');
 const lines = [];
 const date = (context.analysisDate || new Date().toISOString()).split('T')[0];
 
-lines.push(`# Dependency Analysis — ${date}`);
+lines.push(`# Dependency Analysis - ${date}`);
 lines.push('');
 
 // --- Assessment ---
