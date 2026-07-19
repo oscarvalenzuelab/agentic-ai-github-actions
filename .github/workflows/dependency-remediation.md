@@ -14,7 +14,6 @@ permissions:
 
 engine:
   id: copilot
-  model: auto
 
 max-turns: 15
 max-ai-credits: 100
