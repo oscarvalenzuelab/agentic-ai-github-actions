@@ -6,12 +6,13 @@ GitHub Actions workflows that help an OSPO evaluate the health, security, and su
 
 Two independent workflows:
 
-| Workflow | Schedule | Purpose |
-|----------|----------|---------|
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
 | `scorecard-analysis.yml` | Mondays 02:00 UTC | OpenSSF Scorecard of this repository plus an npm audit of its dependencies |
 | `ai-dependency-analysis.yml` | Wednesdays 04:00 UTC | Full dependency-tree analysis with model-driven risk assessment |
+| `dependency-remediation.md` | After each AI analysis run | Agent that fixes what the analysis found: bumps vulnerable dependencies and opens a pull request |
 
-Both also run on manual dispatch and on pushes to `main` that change the relevant files.
+The first two also run on manual dispatch and on pushes to `main` that change the relevant files; all three support manual dispatch.
 
 ## How the AI Analysis Works
 
@@ -45,6 +46,7 @@ The rule-based fallback implements the same five modes with heuristics.
 1. Enable GitHub Actions on the repository.
 2. Ensure the dependency graph is enabled (on by default for public repositories; Settings > Security for private ones).
 3. Ensure GitHub Models is available to the repository or organization (Settings > Models). If it is not, the workflow still runs and uses the rule-based fallback.
+4. For the remediation agent: GitHub Copilot must be enabled for the account (the Free plan is sufficient — the agent uses an included model).
 
 No repository secrets are required.
 
@@ -106,6 +108,17 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/license-an
 https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-report.md
 ```
 
+## Automated Remediation
+
+`dependency-remediation.md` is a [GitHub Agentic Workflow](https://github.github.com/gh-aw/) that runs after each AI dependency analysis completes. It downloads the analysis artifacts, and if any direct dependency has known vulnerabilities with a fixed version available, it updates `package.json`, regenerates the lockfile, verifies `npm audit` improves, and opens a single pull request listing each bump and the advisory IDs it resolves. It also leaves one summary comment on the analysis tracking issue. If there is nothing to remediate, it only comments.
+
+Design constraints:
+
+- Runs on the Copilot engine pinned to `gpt-5-mini`, an included model on every Copilot plan (including Free), so runs do not consume paid AI credits.
+- Authenticates with the built-in workflow token via the `copilot-requests: write` permission — no PAT or repository secret.
+- All writes go through gh-aw safe-outputs (one PR, at most one comment); the agent itself runs sandboxed with read-only permissions, an egress firewall, and hard caps (`max-turns: 15`, `max-ai-credits: 100`).
+- The runnable workflow is the compiled `dependency-remediation.lock.yml`. To change the agent, edit the `.md` file and run `gh aw compile` (requires the [gh-aw extension](https://github.com/github/gh-aw)). `agentics-maintenance.yml` is gh-aw housekeeping that keeps compiled workflows current.
+
 ## Demo Application
 
 `demo-app/` contains a small Python agent (Strands Agents + the OpenAI SDK) that exists as an analysis subject: its dependencies appear in the dependency graph and therefore in the SBOM, OSV, and license checks, and its AI SDK usage is what the ai-finder AIBOM step detects. It doubles as a usage example — it reads a generated analysis report and produces a three-bullet executive summary (requires `OPENAI_API_KEY` to actually run).
@@ -119,7 +132,7 @@ https://github.com/<owner>/<repo>/releases/download/compliance-latest/analysis-r
 
 ## Security Considerations
 
-- Both workflows run under least-privilege permissions; the only write scopes are `issues: write` (tracking issues) and `security-events: write` (SARIF upload).
+- All workflows run under least-privilege permissions. Write scopes: `issues: write` (tracking issues), `security-events: write` (SARIF upload), `contents: write` (refreshing the compliance release), and `copilot-requests: write` (agent inference). The remediation agent itself runs read-only; its PR and comment go through validated safe-outputs.
 - All actions are pinned to full commit SHAs.
 - No external API keys or secrets are used. The external services contacted are the npm registry (package metadata), OSV.dev (vulnerability data), and PyPI (installing ai-finder); the OSPAC dataset is fetched from its GitHub release. AI inference stays within GitHub via GitHub Models.
 
