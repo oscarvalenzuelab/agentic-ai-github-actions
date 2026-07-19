@@ -12,8 +12,7 @@ permissions:
   actions: read
 
 engine:
-  id: copilot
-  model: gpt-5-mini
+  id: codex
 
 max-turns: 15
 max-ai-credits: 100
