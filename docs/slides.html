@@ -27,7 +27,13 @@
   --orange: #f78166;
 }
 
-.reveal-viewport { background: var(--canvas); }
+.reveal-viewport {
+  background:
+    radial-gradient(ellipse 55% 45% at 78% 12%, rgba(163, 113, 247, 0.10), transparent 65%),
+    radial-gradient(ellipse 45% 40% at 12% 95%, rgba(137, 87, 229, 0.07), transparent 60%),
+    radial-gradient(circle, rgba(230, 237, 243, 0.028) 1px, transparent 1.5px) 0 0 / 26px 26px,
+    var(--canvas);
+}
 .reveal .controls { color: var(--blue); }
 .reveal .progress { color: var(--blue); }
 
