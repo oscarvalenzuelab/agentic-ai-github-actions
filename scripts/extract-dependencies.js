@@ -58,9 +58,21 @@ async function getPackageInfo(packageName) {
   });
 }
 
+// True only when the URL's host is exactly github.com (or www.github.com).
+// Registry metadata is third-party input; substring checks would accept
+// hosts like github.com.evil.com or paths containing "github.com".
+function isGithubHost(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === 'github.com' || host === 'www.github.com';
+  } catch (e) {
+    return false;
+  }
+}
+
 function extractGithubRepo(pkg) {
   if (!pkg) return null;
-  
+
   // Check repository field
   if (pkg.repository) {
     if (typeof pkg.repository === 'string') {
@@ -69,21 +81,20 @@ function extractGithubRepo(pkg) {
       return normalizeGithubUrl(pkg.repository.url);
     }
   }
-  
+
   // Check homepage
-  if (pkg.homepage && pkg.homepage.includes('github.com')) {
+  if (pkg.homepage && isGithubHost(pkg.homepage)) {
     return normalizeGithubUrl(pkg.homepage);
   }
-  
+
   // Check bugs URL
-  if (pkg.bugs && pkg.bugs.url && pkg.bugs.url.includes('github.com')) {
-    const bugsUrl = pkg.bugs.url;
-    const match = bugsUrl.match(/github\.com\/([^/]+\/[^/]+)/);
+  if (pkg.bugs && pkg.bugs.url && isGithubHost(pkg.bugs.url)) {
+    const match = pkg.bugs.url.match(/github\.com\/([^/]+\/[^/]+)/);
     if (match) {
       return `https://github.com/${match[1]}`;
     }
   }
-  
+
   return null;
 }
 
@@ -95,21 +106,32 @@ function normalizeGithubUrl(url) {
   url = url.replace(/^git:\/\//, 'https://');
   url = url.replace(/\.git$/, '');
   
+  // git@github.com:owner/repo style remotes (before the shorthand check,
+  // which would otherwise mangle them)
+  const sshMatch = url.match(/^git@github\.com:([\w.-]+\/[\w.-]+)$/);
+  if (sshMatch) {
+    return `https://github.com/${sshMatch[1]}`;
+  }
+
   // Handle GitHub shorthand (e.g., "user/repo")
-  if (url.match(/^[^/]+\/[^/]+$/)) {
+  if (url.match(/^[^/:@]+\/[^/:@]+$/)) {
     return `https://github.com/${url}`;
   }
   
-  // Extract github.com URLs
-  const match = url.match(/github\.com[/:]([\w-]+\/[\w-]+)/);
-  if (match) {
-    return `https://github.com/${match[1]}`;
+  // Canonicalize URLs whose host really is github.com
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (host === 'github.com' || host === 'www.github.com') {
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (parts.length >= 2) {
+        return `https://github.com/${parts[0]}/${parts[1]}`;
+      }
+    }
+  } catch (e) {
+    // not an absolute URL; handled by the branches above
   }
-  
-  if (url.includes('github.com')) {
-    return url;
-  }
-  
+
   return null;
 }
 
