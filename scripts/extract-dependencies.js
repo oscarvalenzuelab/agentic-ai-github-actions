@@ -8,6 +8,35 @@ const { promisify } = require('util');
 const packageJsonPath = path.join(process.cwd(), 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
+// Optional: path to a GitHub dependency graph SBOM (SPDX JSON).
+// When provided, the full dependency tree (direct + transitive, exact
+// resolved versions) is taken from the SBOM instead of package.json alone.
+const sbomPath = process.argv[2];
+
+function parseSbomPackages(sbomFile) {
+  const sbom = JSON.parse(fs.readFileSync(sbomFile, 'utf8'));
+  const packages = [];
+
+  (sbom.sbom?.packages || []).forEach(pkg => {
+    const purlRef = (pkg.externalRefs || []).find(r =>
+      r.referenceType === 'purl' && r.referenceLocator?.startsWith('pkg:npm/')
+    );
+    if (!purlRef) return; // skip the root package and non-npm entries
+
+    // pkg:npm/%40scope/name@1.2.3 -> @scope/name, 1.2.3
+    const locator = purlRef.referenceLocator.slice('pkg:npm/'.length);
+    const atIndex = locator.lastIndexOf('@');
+    if (atIndex <= 0) return;
+
+    packages.push({
+      name: decodeURIComponent(locator.slice(0, atIndex)),
+      version: locator.slice(atIndex + 1)
+    });
+  });
+
+  return packages;
+}
+
 async function getPackageInfo(packageName) {
   return new Promise((resolve, reject) => {
     https.get(`https://registry.npmjs.org/${packageName}`, (res) => {
@@ -81,47 +110,68 @@ function normalizeGithubUrl(url) {
 }
 
 async function extractDependencies() {
-  const allDeps = {
-    ...packageJson.dependencies,
-    ...packageJson.devDependencies
-  };
-  
+  const directDeps = new Set([
+    ...Object.keys(packageJson.dependencies || {}),
+    ...Object.keys(packageJson.devDependencies || {})
+  ]);
+
+  // Package list: full tree from the SBOM when available, otherwise
+  // direct dependencies from package.json (versions are semver ranges).
+  let packageList;
+  if (sbomPath && fs.existsSync(sbomPath)) {
+    packageList = parseSbomPackages(sbomPath);
+  } else {
+    packageList = Object.entries({
+      ...packageJson.dependencies,
+      ...packageJson.devDependencies
+    }).map(([name, version]) => ({ name, version }));
+  }
+
   const result = {
     timestamp: new Date().toISOString(),
     projectName: packageJson.name,
+    source: sbomPath && fs.existsSync(sbomPath) ? 'dependency-graph-sbom' : 'package.json',
     packages: [],
     repositories: []
   };
-  
+
   const repoSet = new Set();
-  
-  for (const [name, version] of Object.entries(allDeps)) {
-    const pkgInfo = await getPackageInfo(name);
-    
+
+  for (const { name, version } of packageList) {
+    const isDirect = directDeps.has(name);
+
     const packageData = {
       name,
       version,
+      isDirect,
       isDev: packageJson.devDependencies && packageJson.devDependencies[name] !== undefined
     };
-    
-    if (pkgInfo) {
-      packageData.latest = pkgInfo['dist-tags']?.latest;
-      packageData.description = pkgInfo.description;
-      packageData.license = pkgInfo.license;
-      packageData.maintainers = pkgInfo.maintainers?.map(m => m.name);
-      
-      const repoUrl = extractGithubRepo(pkgInfo);
-      if (repoUrl) {
-        packageData.repository = repoUrl;
-        repoSet.add(repoUrl);
+
+    // Deep enrichment (registry metadata + GitHub repo mapping) only for
+    // direct dependencies — those are the ones the per-repo metric
+    // collection analyzes. Transitive packages still get OSV vulnerability
+    // coverage from name+version alone.
+    if (isDirect) {
+      const pkgInfo = await getPackageInfo(name);
+      if (pkgInfo) {
+        packageData.latest = pkgInfo['dist-tags']?.latest;
+        packageData.description = pkgInfo.description;
+        packageData.license = pkgInfo.license;
+        packageData.maintainers = pkgInfo.maintainers?.map(m => m.name);
+
+        const repoUrl = extractGithubRepo(pkgInfo);
+        if (repoUrl) {
+          packageData.repository = repoUrl;
+          repoSet.add(repoUrl);
+        }
       }
     }
-    
+
     result.packages.push(packageData);
   }
-  
+
   result.repositories = Array.from(repoSet);
-  
+
   console.log(JSON.stringify(result, null, 2));
 }
 

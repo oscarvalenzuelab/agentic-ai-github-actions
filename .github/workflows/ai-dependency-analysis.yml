@@ -14,6 +14,11 @@ on:
           - maintainer-burnout
           - community-health
           - license-compliance
+      model:
+        description: 'GitHub Models model to use'
+        required: false
+        default: 'openai/gpt-4o-mini'
+        type: string
   schedule:
     - cron: '0 4 * * WED'  # Weekly on Wednesday at 4 AM
   push:
@@ -31,12 +36,13 @@ jobs:
       contents: read
       issues: write
       pull-requests: read
+      models: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -45,9 +51,29 @@ jobs:
         run: npm ci
 
       - name: Extract dependency data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          node scripts/extract-dependencies.js > dependencies.json
-          echo "Found $(cat dependencies.json | jq '.repositories | length') repositories to analyze"
+          # Prefer the native dependency graph SBOM: full tree (direct +
+          # transitive) with exact resolved versions. Fall back to
+          # package.json parsing if the dependency graph is unavailable.
+          if gh api "repos/${{ github.repository }}/dependency-graph/sbom" > sbom.json 2>/dev/null; then
+            echo "Using dependency graph SBOM ($(jq '.sbom.packages | length' sbom.json) packages)..."
+            node scripts/extract-dependencies.js sbom.json > dependencies.json
+          else
+            echo "Dependency graph unavailable; falling back to package.json..."
+            node scripts/extract-dependencies.js > dependencies.json
+          fi
+          echo "Found $(jq '.packages | length' dependencies.json) packages, $(jq '.repositories | length' dependencies.json) direct-dependency repositories to analyze"
+
+      - name: Query known vulnerabilities (OSV.dev)
+        run: |
+          if node scripts/fetch-osv-vulns.js dependencies.json > osv-vulns.json; then
+            echo "OSV: $(jq '.totalVulns' osv-vulns.json) known vulnerabilities across $(jq '.packagesWithVulns' osv-vulns.json) packages"
+          else
+            echo "OSV query failed; continuing without vulnerability data"
+            echo '{"packagesQueried":0,"packagesWithVulns":0,"totalVulns":0,"vulnerablePackages":[]}' > osv-vulns.json
+          fi
 
       - name: Collect GitHub repository metrics
         env:
@@ -89,171 +115,53 @@ jobs:
         run: |
           node scripts/prepare-analysis-context.js repo-data/ > analysis-context.json
 
-      - name: Run AI analysis
-        if: github.event.inputs.analysis_type != '' || github.event_name == 'schedule'
+      - name: Build model prompts
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANALYSIS_TYPE: ${{ github.event.inputs.analysis_type || 'comprehensive' }}
         run: |
-          # Select appropriate prompt based on analysis type
+          # User prompt: the summarized dependency metrics + known vulnerabilities
+          node scripts/build-ai-prompt.js analysis-context.json osv-vulns.json > ai-user-prompt.txt
+
+          # System prompt: the selected analysis persona + a strict JSON contract
           PROMPT_FILE="analysis-prompts/${ANALYSIS_TYPE}.md"
-          
-          if [ ! -f "$PROMPT_FILE" ]; then
-            PROMPT_FILE="analysis-prompts/comprehensive.md"
-          fi
-          
-          # Check if OpenAI API key is available
-          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
-            echo "Using OpenAI for analysis..."
+          [ -f "$PROMPT_FILE" ] || PROMPT_FILE="analysis-prompts/comprehensive.md"
 
-            # Export the API key for the Node script
-            export OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
+          {
+            cat "$PROMPT_FILE"
+            echo ""
+            echo "## Strict Output Contract"
+            echo "Respond with ONLY a single JSON object (no prose, no markdown, no code fences) using exactly these keys:"
+            echo '- "summary": string, a 2-4 sentence executive summary'
+            echo '- "overallRisk": one of "Low", "Medium", "High", "Critical"'
+            echo '- "criticalFindings": array of 3-5 short strings'
+            echo '- "securityIssues": array of short strings'
+            echo '- "sustainabilityIssues": array of short strings'
+            echo '- "recommendations": array of 5 short strings'
+            echo '- "immediateActions": array of 2-3 short strings'
+          } > ai-system-prompt.txt
 
-            # Use the improved Node.js script for OpenAI analysis
-            if [ -f "scripts/test-openai-analysis.js" ]; then
-              node scripts/test-openai-analysis.js
-            else
-              # Fallback to curl approach with better error handling
-              echo "Script not found, using curl fallback..."
+      - name: Run AI analysis (GitHub Models)
+        id: ai
+        continue-on-error: true
+        uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad # v2.1.1
+        with:
+          model: ${{ github.event.inputs.model || 'openai/gpt-4o-mini' }}
+          system-prompt-file: ai-system-prompt.txt
+          prompt-file: ai-user-prompt.txt
+          max-completion-tokens: 2000
 
-              # Create summarized context to avoid token limits
-              SUMMARIZED_CONTEXT=$(node -e "
-              const fs = require('fs');
-              const context = JSON.parse(fs.readFileSync('analysis-context.json', 'utf8'));
-              const summary = {
-                date: context.analysisDate,
-                repos: context.repositoriesAnalyzed,
-                avgScore: context.summary.averageHealthScore,
-                topConcerns: context.detailedAnalysis
-                  .filter(r => r.healthScore < 50)
-                  .slice(0, 5)
-                  .map(r => ({
-                    name: r.repository,
-                    score: r.healthScore,
-                    issue: r.metrics.archived ? 'archived' :
-                           r.metrics.disabled ? 'disabled' :
-                           r.metrics.commitsLastMonth === 0 ? 'no activity' :
-                           r.metrics.contributorCount < 2 ? 'low contributors' : 'low health'
-                  }))
-              };
-              console.log(JSON.stringify(summary));
-              ")
-
-              # Create a temporary file for the response
-              TEMP_RESPONSE=$(mktemp)
-
-              # Call OpenAI API with smaller context
-              curl -s https://api.openai.com/v1/chat/completions \
-                -H "Content-Type: application/json" \
-                -H "Authorization: Bearer ${{ secrets.OPENAI_API_KEY }}" \
-                -d @- <<EOF > $TEMP_RESPONSE
-              {
-                "model": "gpt-3.5-turbo-16k",
-                "messages": [
-                  {
-                    "role": "system",
-                    "content": "You are an expert in open source software analysis. Provide concise JSON response."
-                  },
-                  {
-                    "role": "user",
-                    "content": "Analyze these dependency metrics and provide recommendations:\n\n$SUMMARIZED_CONTEXT\n\nRespond with JSON containing: summary (2-3 sentences), overallRisk (Low/Medium/High/Critical), criticalFindings (array of 3-5 issues), securityIssues (array), sustainabilityIssues (array), recommendations (array of 5 actions), immediateActions (array of 2-3 urgent items)"
-                  }
-                ],
-                "temperature": 0.3,
-                "max_tokens": 2000
-              }
-          EOF
-
-              # Extract and process the response
-              if jq -e '.choices[0].message.content' $TEMP_RESPONSE > /dev/null 2>&1; then
-                jq -r '.choices[0].message.content' $TEMP_RESPONSE > ai-analysis-raw.txt
-
-                # Try to parse as JSON, or create structured response
-                node -e "
-                const fs = require('fs');
-                const raw = fs.readFileSync('ai-analysis-raw.txt', 'utf8');
-                let result;
-                try {
-                  result = JSON.parse(raw);
-                } catch(e) {
-                  result = {
-                    summary: raw,
-                    overallRisk: 'Medium',
-                    criticalFindings: [],
-                    securityIssues: [],
-                    sustainabilityIssues: [],
-                    recommendations: ['Review the analysis summary above'],
-                    immediateActions: []
-                  };
-                }
-                fs.writeFileSync('ai-analysis-result.json', JSON.stringify(result, null, 2));
-                " || echo '{"summary": "Analysis failed", "overallRisk": "Unknown"}' > ai-analysis-result.json
-              else
-                echo "OpenAI API call failed. Response:"
-                cat $TEMP_RESPONSE
-                echo '{"summary": "OpenAI API call failed", "overallRisk": "Unknown"}' > ai-analysis-result.json
-              fi
-
-              rm -f $TEMP_RESPONSE
-            fi
+      - name: Normalize AI result
+        env:
+          ANALYSIS_TYPE: ${{ github.event.inputs.analysis_type || 'comprehensive' }}
+          AI_OUTCOME: ${{ steps.ai.outcome }}
+          AI_RESPONSE_FILE: ${{ steps.ai.outputs['response-file'] }}
+        run: |
+          if [ "$AI_OUTCOME" = "success" ] && [ -n "$AI_RESPONSE_FILE" ] && [ -s "$AI_RESPONSE_FILE" ]; then
+            echo "GitHub Models responded; normalizing result..."
+            node scripts/parse-ai-response.js "$AI_RESPONSE_FILE" ai-analysis-result.json
           else
-            echo "No AI service configured. Generating enhanced rule-based analysis for type: ${ANALYSIS_TYPE}..."
-            
-            # Use enhanced rule-based analysis for specific analysis types
-            if [ -f "scripts/enhanced-rule-analysis.js" ]; then
-              node scripts/enhanced-rule-analysis.js analysis-context.json "${ANALYSIS_TYPE}" > ai-analysis-result.json
-            else
-              # Fallback to basic analysis
-              node -e "
-              const context = require('./analysis-context.json');
-              const analysis = {
-                summary: 'Automated Analysis (No AI Service Available)',
-                findings: [],
-                recommendations: []
-              };
-              
-              // Analyze health scores
-              const avgScore = context.summary.averageHealthScore;
-              if (avgScore < 50) {
-                analysis.findings.push('⚠️ Low average health score (' + avgScore + '/100) across dependencies');
-                analysis.recommendations.push('Consider replacing or contributing to low-health dependencies');
-              }
-              
-              // Check for at-risk repos
-              const atRisk = context.summary.atRiskRepositories;
-              if (atRisk > 0) {
-                analysis.findings.push('🔴 ' + atRisk + ' repositories identified as at-risk');
-                analysis.recommendations.push('Prioritize reviewing at-risk dependencies for replacement');
-              }
-              
-              // Check for abandoned repos
-              context.detailedAnalysis.forEach(repo => {
-                if (repo.metrics.archived) {
-                  analysis.findings.push('❌ ' + repo.repository + ' is archived');
-                }
-                if (repo.metrics.commitsLastMonth === 0 && !repo.metrics.archived) {
-                  analysis.findings.push('⚠️ ' + repo.repository + ' has no recent activity');
-                }
-                if (repo.metrics.contributorCount < 2) {
-                  analysis.findings.push('👤 ' + repo.repository + ' has bus factor risk (single maintainer)');
-                }
-              });
-              
-              // Output formatted analysis
-              console.log('## Analysis Results\\n');
-              console.log('### Key Findings\\n');
-              analysis.findings.forEach(f => console.log('- ' + f));
-              console.log('\\n### Recommendations\\n');
-              analysis.recommendations.forEach(r => console.log('- ' + r));
-              
-              // Add metrics summary
-              console.log('\\n### Metrics Summary\\n');
-              console.log('- Total repositories analyzed: ' + context.repositoriesAnalyzed);
-              console.log('- Average health score: ' + avgScore + '/100');
-              console.log('- Healthy repositories: ' + context.summary.healthyRepositories);
-              console.log('- At-risk repositories: ' + atRisk);
-            " > ai-analysis-result.json
-            fi
+            echo "GitHub Models unavailable (outcome: $AI_OUTCOME); using enhanced rule-based analysis..."
+            node scripts/enhanced-rule-analysis.js analysis-context.json "$ANALYSIS_TYPE" > ai-analysis-result.json
           fi
 
       - name: Generate detailed reports
@@ -299,11 +207,13 @@ jobs:
           EOF
 
       - name: Upload analysis artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ai-dependency-analysis
           path: |
             repo-data/
+            sbom.json
+            osv-vulns.json
             analysis-context.json
             ai-analysis-result.json
             ai-analysis-report.md
@@ -313,7 +223,7 @@ jobs:
 
       - name: Create or update analysis issue
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/github-script@v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const fs = require('fs');
@@ -358,27 +268,5 @@ jobs:
                 title: title,
                 body: body,
                 labels: ['ai-analysis', 'dependencies', 'automated']
-              });
-            }
-
-      - name: Post high-priority findings as PR comments
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const insights = fs.readFileSync('actionable-insights.md', 'utf8');
-            
-            // Extract high priority items
-            const highPriority = insights.split('\n')
-              .filter(line => line.includes('HIGH') || line.includes('CRITICAL'))
-              .join('\n');
-            
-            if (highPriority) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: `## ⚠️ Dependency Analysis - High Priority Findings\n\n${highPriority}`
               });
             }
