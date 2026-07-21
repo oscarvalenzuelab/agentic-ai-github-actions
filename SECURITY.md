@@ -2,12 +2,20 @@
 
 ## Reporting a Vulnerability
 
-If you find a security issue in this project, please report it privately through
+If you discover a security vulnerability in this project, please disclose it
+privately through
 [GitHub Security Advisories](https://github.com/oscarvalenzuelab/agentic-ai-github-actions/security/advisories/new)
-rather than opening a public issue.
+rather than opening a public issue. Do not disclose the vulnerability publicly
+until it has been addressed.
 
-You can expect an initial response within a week. This is a demonstration project;
-fixes are made on a best-effort basis.
+Disclosure timeline:
+
+- **Acknowledgement:** within 7 days of your report.
+- **Assessment and triage:** within 14 days, including a severity rating.
+- **Fix or mitigation:** on a best-effort basis, since this is a demonstration
+  project. You will be credited in the advisory unless you request otherwise.
+
+Please include steps to reproduce, affected versions, and the potential impact.
 
 ## Scope
 
